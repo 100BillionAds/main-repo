@@ -1,3 +1,4 @@
+'use client';
 import Sidebar from '@/src/components/Sidebar';
 import AuthGuard from '@/src/components/AuthGuard';
 import dynamic from 'next/dynamic';
