@@ -48,6 +48,16 @@ export default function Header() {
             Projects
           </Link>
           <Link
+            href="/demo"
+            className={`text-sm transition-colors ${
+              isActive('/demo')
+                ? 'font-semibold'
+                : 'hover:text-zinc-600 dark:hover:text-zinc-400'
+            }`}
+          >
+            Demo
+          </Link>
+          <Link
             href="/about"
             className={`text-sm transition-colors ${
               isActive('/about')
