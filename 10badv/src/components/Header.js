@@ -38,6 +38,16 @@ export default function Header() {
             Dashboard
           </Link>
           <Link
+            href="/projects"
+            className={`text-sm transition-colors ${
+              isActive('/projects') || pathname?.startsWith('/projects/')
+                ? 'font-semibold'
+                : 'hover:text-zinc-600 dark:hover:text-zinc-400'
+            }`}
+          >
+            Projects
+          </Link>
+          <Link
             href="/about"
             className={`text-sm transition-colors ${
               isActive('/about')
