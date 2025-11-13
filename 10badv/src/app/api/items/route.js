@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { listItems, createItem } from '../../../lib/data';
+import prisma from '../../../lib/db';
 
 export async function GET() {
-  const items = listItems();
+  const items = await prisma.item.findMany({ orderBy: { createdAt: 'desc' } });
   return NextResponse.json(items);
 }
 
@@ -11,6 +11,6 @@ export async function POST(request) {
   if (!body || !body.title) {
     return NextResponse.json({ error: 'title required' }, { status: 400 });
   }
-  const item = createItem({ title: body.title, description: body.description || '' });
+  const item = await prisma.item.create({ data: { title: body.title, description: body.description || '' } });
   return NextResponse.json(item, { status: 201 });
 }
