@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useSession, signOut } from 'next-auth/react';
 
 /**
  * Header 컴포넌트 - 사이트 전역 헤더
@@ -9,6 +10,7 @@ import { usePathname } from 'next/navigation';
  */
 export default function Header() {
   const pathname = usePathname();
+  const { data: session, status } = useSession();
 
   const isActive = (path) => pathname === path;
 
@@ -67,6 +69,36 @@ export default function Header() {
           >
             About
           </Link>
+
+          <div className="ml-4 border-l border-zinc-300 pl-4 dark:border-zinc-700">
+            {status === 'loading' ? (
+              <span className="text-sm text-zinc-400">...</span>
+            ) : session ? (
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-zinc-600 dark:text-zinc-400">
+                  {session.user?.name}
+                  {session.user?.role === 'admin' && (
+                    <span className="ml-2 rounded bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                      Admin
+                    </span>
+                  )}
+                </span>
+                <button
+                  onClick={() => signOut({ callbackUrl: '/' })}
+                  className="rounded-lg bg-zinc-100 px-3 py-1.5 text-sm font-medium transition-colors hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+                >
+                  로그아웃
+                </button>
+              </div>
+            ) : (
+              <Link
+                href="/login"
+                className="rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+              >
+                로그인
+              </Link>
+            )}
+          </div>
         </nav>
       </div>
     </header>

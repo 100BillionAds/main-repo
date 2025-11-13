@@ -1,22 +1,50 @@
-import Link from 'next/link';
+'use client';
 
-export const metadata = {
-  title: 'Dashboard - 10badv',
-  description: 'Your personal workspace dashboard',
-};
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import Link from 'next/link';
+import Loading from '@/components/ui/Loading';
 
 /**
  * Dashboard 페이지 - 사용자 대시보드
  */
 export default function Dashboard() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/login');
+    }
+  }, [status, router]);
+
+  if (status === 'loading') {
+    return <Loading size="lg" text="로딩 중..." />;
+  }
+
+  if (!session) {
+    return null;
+  }
+
   return (
     <div className="mx-auto max-w-6xl px-6 py-12">
       <div className="mb-8">
-        <h1 className="mb-2 text-3xl font-bold">Dashboard</h1>
+        <h1 className="mb-2 text-3xl font-bold">
+          Dashboard - Welcome, {session.user?.name}!
+        </h1>
         <p className="text-zinc-600 dark:text-zinc-400">
-          Welcome to your workspace. Manage your projects and tasks here.
+          {session.user?.role === 'admin' ? '관리자 대시보드' : '사용자 대시보드'}
         </p>
       </div>
+
+      {session.user?.role === 'admin' && (
+        <div className="mb-6 rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20">
+          <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
+            🎉 관리자 권한으로 로그인되었습니다!
+          </p>
+        </div>
+      )}
 
       <div className="mb-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <div className="rounded-lg border border-zinc-200 bg-white p-6 transition-shadow hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900">
