@@ -1,0 +1,27 @@
+-- payments 테이블 생성
+CREATE TABLE IF NOT EXISTS payments (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  merchant_uid VARCHAR(255) NOT NULL UNIQUE COMMENT '가맹점 주문 번호',
+  imp_uid VARCHAR(255) COMMENT '포트원 결제 고유번호',
+  amount INT NOT NULL COMMENT '결제 금액',
+  payment_method VARCHAR(50) NOT NULL DEFAULT 'card' COMMENT '결제 수단 (card, trans, vbank, phone)',
+  order_name VARCHAR(255) COMMENT '주문명',
+  status ENUM('pending', 'completed', 'failed', 'cancelled') DEFAULT 'pending' COMMENT '결제 상태',
+  pg_provider VARCHAR(50) COMMENT 'PG사',
+  pg_tid VARCHAR(255) COMMENT 'PG거래번호',
+  card_name VARCHAR(100) COMMENT '카드사 이름',
+  paid_at DATETIME COMMENT '결제 완료 시간',
+  failed_at DATETIME COMMENT '결제 실패 시간',
+  cancelled_at DATETIME COMMENT '결제 취소 시간',
+  fail_reason TEXT COMMENT '실패 사유',
+  cancel_reason TEXT COMMENT '취소 사유',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_user_id (user_id),
+  INDEX idx_merchant_uid (merchant_uid),
+  INDEX idx_imp_uid (imp_uid),
+  INDEX idx_status (status),
+  INDEX idx_created_at (created_at),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

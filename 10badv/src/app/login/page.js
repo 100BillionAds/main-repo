@@ -3,13 +3,9 @@
 import { signIn } from 'next-auth/react';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Input from '@/components/ui/Input';
-import Button from '@/components/ui/Button';
-import Card from '@/components/ui/Card';
+import Link from 'next/link';
+import styles from './login.module.css';
 
-/**
- * Login 페이지 - 사용자 로그인
- */
 export default function LoginPage() {
   const router = useRouter();
   const [formData, setFormData] = useState({
@@ -44,83 +40,113 @@ export default function LoginPage() {
     }
   };
 
-  const handleDemoLogin = (username, password) => {
-    setFormData({ username, password });
-  };
-
   return (
-    <div className="flex min-h-[80vh] items-center justify-center bg-gradient-to-b from-zinc-50 to-white dark:from-black dark:to-zinc-900">
-      <div className="w-full max-w-md px-6">
-        <div className="mb-8 text-center">
-          <h1 className="mb-2 text-3xl font-bold">로그인</h1>
-          <p className="text-zinc-600 dark:text-zinc-400">계정에 로그인하세요</p>
+    <div className={styles.container}>
+      <div className={styles.wrapper}>
+        <div className={styles.brandSection}>
+          <div className={styles.brandContent}>
+            <div className={styles.logo}>
+              <span className={styles.logoIcon}>💯</span>
+              <span className={styles.logoText}>백억광고</span>
+            </div>
+            <h1 className={styles.brandTitle}>
+              간판 디자인의<br />새로운 기준
+            </h1>
+            <p className={styles.brandDescription}>
+              전문 디자이너와 함께하는<br />
+              프리미엄 간판 제작 플랫폼
+            </p>
+            <div className={styles.features}>
+              <div className={styles.feature}>
+                <span className={styles.featureIcon}>✓</span>
+                <span>검증된 전문 디자이너</span>
+              </div>
+              <div className={styles.feature}>
+                <span className={styles.featureIcon}>✓</span>
+                <span>안전한 에스크로 결제</span>
+              </div>
+              <div className={styles.feature}>
+                <span className={styles.featureIcon}>✓</span>
+                <span>실시간 작업 진행 공유</span>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <Card>
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <div className={styles.formSection}>
+          <div className={styles.formWrapper}>
+            <div className={styles.formHeader}>
+              <h2 className={styles.formTitle}>로그인</h2>
+              <p className={styles.formDescription}>
+                계정에 로그인하여 서비스를 이용하세요
+              </p>
+            </div>
+
             {error && (
-              <div className="rounded-lg bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/20 dark:text-red-200">
-                {error}
+              <div className={styles.errorAlert}>
+                <span className={styles.errorIcon}>⚠️</span>
+                <span>{error}</span>
               </div>
             )}
 
-            <Input
-              label="사용자 이름"
-              type="text"
-              placeholder="username"
-              value={formData.username}
-              onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-              required
-            />
+            <form onSubmit={handleSubmit} className={styles.form}>
+              <div className={styles.inputGroup}>
+                <label className={styles.label}>아이디</label>
+                <input
+                  type="text"
+                  value={formData.username}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  className={styles.input}
+                  placeholder="아이디를 입력하세요"
+                  required
+                />
+              </div>
 
-            <Input
-              label="비밀번호"
-              type="password"
-              placeholder="password"
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              required
-            />
+              <div className={styles.inputGroup}>
+                <label className={styles.label}>비밀번호</label>
+                <input
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className={styles.input}
+                  placeholder="비밀번호를 입력하세요"
+                  required
+                />
+              </div>
 
-            <Button type="submit" variant="primary" className="w-full" disabled={loading}>
-              {loading ? '로그인 중...' : '로그인'}
-            </Button>
-          </form>
+              <div className={styles.options}>
+                <label className={styles.checkbox}>
+                  <input type="checkbox" />
+                  <span>로그인 상태 유지</span>
+                </label>
+                <Link href="/forgot-password" className={styles.forgotLink}>
+                  비밀번호 찾기
+                </Link>
+              </div>
 
-          <div className="mt-6 border-t border-zinc-200 pt-6 dark:border-zinc-800">
-            <p className="mb-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              테스트 계정으로 로그인:
-            </p>
-            <div className="space-y-2">
               <button
-                type="button"
-                onClick={() => handleDemoLogin('admin', 'admin')}
-                className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2 text-left text-sm transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+                type="submit"
+                disabled={loading}
+                className={styles.submitButton}
               >
-                <div className="font-medium">관리자 계정</div>
-                <div className="text-xs text-zinc-600 dark:text-zinc-400">
-                  Username: admin / Password: admin
-                </div>
+                {loading ? (
+                  <>
+                    <span className={styles.spinner}></span>
+                    <span>로그인 중...</span>
+                  </>
+                ) : (
+                  '로그인'
+                )}
               </button>
-              <button
-                type="button"
-                onClick={() => handleDemoLogin('test1234', '1234')}
-                className="w-full rounded-lg border border-zinc-300 bg-white px-4 py-2 text-left text-sm transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
-              >
-                <div className="font-medium">테스트 계정</div>
-                <div className="text-xs text-zinc-600 dark:text-zinc-400">
-                  Username: test1234 / Password: 1234
-                </div>
-              </button>
+            </form>
+
+            <div className={styles.footer}>
+              <span>아직 계정이 없으신가요?</span>
+              <Link href="/register" className={styles.registerLink}>
+                회원가입
+              </Link>
             </div>
           </div>
-        </Card>
-
-        <div className="mt-6 text-center text-sm text-zinc-600 dark:text-zinc-400">
-          계정이 없으신가요?{' '}
-          <a href="/register" className="font-medium text-blue-600 hover:underline">
-            회원가입
-          </a>
         </div>
       </div>
     </div>

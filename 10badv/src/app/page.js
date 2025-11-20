@@ -1,59 +1,53 @@
 import Link from 'next/link';
+import FeaturedSection from '@/components/home/FeaturedSection';
+import StatsSection from '@/components/home/StatsSection';
+import DesignerSection from '@/components/home/DesignerSection';
+import styles from './home.module.css';
 
-/**
- * Home 페이지 - 메인 랜딩 페이지
- */
 export default function Home() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-zinc-50 to-white dark:from-black dark:to-zinc-900">
-      <div className="w-full max-w-4xl px-6 py-16 text-center">
-        <h1 className="mb-6 text-5xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50 md:text-6xl">
-          Welcome to <span className="text-blue-600 dark:text-blue-500">10badv</span>
-        </h1>
-        <p className="mx-auto mb-12 max-w-2xl text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-          A modern workspace designed for productivity and collaboration. Build, organize, and share
-          your ideas seamlessly.
-        </p>
-
-        <div className="mb-16 flex flex-col items-center justify-center gap-4 sm:flex-row">
-          <Link
-            href="/dashboard"
-            className="flex h-12 w-full items-center justify-center rounded-lg bg-blue-600 px-8 text-base font-medium text-white transition-colors hover:bg-blue-700 sm:w-auto"
-          >
-            Get Started
-          </Link>
-          <Link
-            href="/about"
-            className="flex h-12 w-full items-center justify-center rounded-lg border border-zinc-300 px-8 text-base font-medium transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800 sm:w-auto"
-          >
-            Learn More
-          </Link>
+    <main className="min-h-screen">
+      <section className={styles.hero}>
+        <div className={styles.heroBackground}>
+          <div className={`${styles.heroBlob} ${styles.heroBlob1}`} />
+          <div className={`${styles.heroBlob} ${styles.heroBlob2}`} />
+          <div className={`${styles.heroBlob} ${styles.heroBlob3}`} />
         </div>
-
-        <div className="grid gap-8 md:grid-cols-3">
-          <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-            <div className="mb-4 text-3xl">🚀</div>
-            <h3 className="mb-2 text-xl font-semibold">Fast & Modern</h3>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              Built with Next.js 16 for optimal performance and developer experience.
-            </p>
+        <div className={styles.heroContent}>
+          <div className={styles.heroBadge}>
+            <span>🎉</span>
+            <span>새로운 디자인 마켓플레이스</span>
           </div>
-          <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-            <div className="mb-4 text-3xl">🎨</div>
-            <h3 className="mb-2 text-xl font-semibold">Beautiful UI</h3>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              Elegant design with dark mode support and smooth animations.
-            </p>
-          </div>
-          <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-            <div className="mb-4 text-3xl">🔒</div>
-            <h3 className="mb-2 text-xl font-semibold">Secure</h3>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              Authentication ready with NextAuth for secure user management.
-            </p>
+          <h1 className={styles.heroTitle}>
+            당신의 디자인을<br />
+            세상과 공유하세요
+          </h1>
+          <p className={styles.heroDescription}>
+            10만 명의 디자이너들이 함께하는 한국 최대 디자인 거래 플랫폼
+          </p>
+          <div className={styles.heroCta}>
+            <Link href="/portfolios">
+              <button className={`${styles.heroCtaButton} ${styles.heroCtaPrimary}`}>
+                포트폴리오 둘러보기
+              </button>
+            </Link>
+            <Link href="/auth/signup">
+              <button className={`${styles.heroCtaButton} ${styles.heroCtaSecondary}`}>
+                무료로 시작하기
+              </button>
+            </Link>
           </div>
         </div>
-      </div>
-    </div>
+      </section>
+      <StatsSection />
+      <section className={styles.featuredSection}>
+        <h2 className={styles.sectionTitle}>최근 거래된 포트폴리오</h2>
+        <FeaturedSection />
+      </section>
+      <section className={styles.designerSection}>
+        <h2 className={styles.sectionTitle}>우수 디자이너</h2>
+        <DesignerSection />
+      </section>
+    </main>
   );
 }

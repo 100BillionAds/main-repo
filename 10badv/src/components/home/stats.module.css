@@ -1,0 +1,146 @@
+/* ========================================
+   Stats 컴포넌트 전용 스타일
+   ======================================== */
+
+.container {
+  padding: 4rem 1rem;
+  background: linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+}
+
+.grid {
+  display: grid;
+  gap: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  grid-template-columns: 1fr;
+}
+
+.card {
+  background: white;
+  padding: 2.5rem 2rem;
+  border-radius: 1.5rem;
+  text-align: center;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* 카드 상단 그라데이션 바 */
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--card-gradient);
+  transition: height 0.3s ease;
+}
+
+.card:hover::before {
+  height: 6px;
+}
+
+.card:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.iconWrapper {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+  position: relative;
+}
+
+.icon {
+  font-size: 4rem;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
+  animation: bounce 2s ease-in-out infinite;
+}
+
+.value {
+  font-size: 3rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+  background: var(--card-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  line-height: 1.2;
+}
+
+.label {
+  font-size: 1.125rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+  letter-spacing: 0.025em;
+}
+
+/* 개별 카드 색상 */
+.blue {
+  --card-gradient: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+}
+
+.green {
+  --card-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.purple {
+  --card-gradient: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+}
+
+.pink {
+  --card-gradient: linear-gradient(135deg, #ec4899 0%, #db2777 100%);
+}
+
+/* 반응형 */
+@media (min-width: 640px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  
+  .card {
+    padding: 3rem 2rem;
+  }
+  
+  .icon {
+    font-size: 3.5rem;
+  }
+  
+  .value {
+    font-size: 2.5rem;
+  }
+  
+  .label {
+    font-size: 1rem;
+  }
+}
+
+/* 모바일 최적화 */
+@media (max-width: 639px) {
+  .container {
+    padding: 3rem 1rem;
+  }
+  
+  .card {
+    padding: 2rem 1.5rem;
+  }
+  
+  .icon {
+    font-size: 3rem;
+  }
+  
+  .value {
+    font-size: 2.5rem;
+  }
+}
