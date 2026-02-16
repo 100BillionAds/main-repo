@@ -3,17 +3,5 @@
   "buildCommand": "npm run build",
   "installCommand": "npm install",
   "outputDirectory": ".next",
-  "regions": ["icn1"],
-  "env": {
-    "DATABASE_HOST": "@database-host",
-    "DATABASE_USER": "@database-user",
-    "DATABASE_PASSWORD": "@database-password",
-    "DATABASE_NAME": "@database-name",
-    "NEXTAUTH_SECRET": "@nextauth-secret",
-    "PORTONE_API_SECRET": "@portone-api-secret",
-    "AWS_ACCESS_KEY_ID": "@aws-access-key-id",
-    "AWS_SECRET_ACCESS_KEY": "@aws-secret-access-key",
-    "AWS_S3_BUCKET": "@aws-s3-bucket",
-    "AWS_REGION": "@aws-region"
-  }
+  "regions": ["icn1"]
 }
