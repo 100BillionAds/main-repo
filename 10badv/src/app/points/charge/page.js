@@ -56,99 +56,30 @@ export default function PointsChargePage() {
     setIsLoading(true);
 
     try {
-      // 결제 준비 API 호출
-      const prepareRes = await fetch('/api/payments', {
+      // 포인트 충전 API 직접 호출 (테스트용)
+      const response = await fetch('/api/points', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          amount,
-          payment_method: paymentMethod,
-          order_name: `포인트 ${amount.toLocaleString()}원 충전`
+          amount
         })
       });
 
-      const prepareData = await prepareRes.json();
+      const data = await response.json();
 
-      if (!prepareData.success) {
-        alert(prepareData.error || '결제 준비 실패');
-        setIsLoading(false);
-        return;
+      if (data.success) {
+        alert(`${amount.toLocaleString()}P가 충전되었습니다!\n현재 보유 포인트: ${data.points.toLocaleString()}P`);
+        setChargeAmount('');
+        fetchPointsData();
+      } else {
+        alert(data.error || '포인트 충전에 실패했습니다.');
       }
-
-      // 포트원 결제 요청
-      const { IMP } = window;
-      if (!IMP) {
-        alert('결제 모듈을 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
-        setIsLoading(false);
-        return;
-      }
-
-      const storeId = process.env.NEXT_PUBLIC_PORTONE_STORE_ID;
-      if (!storeId) {
-        alert('결제 설정이 올바르지 않습니다. 관리자에게 문의하세요.');
-        setIsLoading(false);
-        return;
-      }
-
-      IMP.init(storeId);
-
-      // PG사 및 결제 수단 매핑
-      const pgMap = {
-        card: 'html5_inicis',
-        bank: 'html5_inicis.HPP',
-        kakao: 'kakaopay',
-        naver: 'naverpay'
-      };
-
-      IMP.request_pay(
-        {
-          pg: pgMap[paymentMethod] || 'html5_inicis',
-          pay_method: paymentMethod === 'card' ? 'card' : paymentMethod === 'bank' ? 'trans' : 'card',
-          merchant_uid: prepareData.merchant_uid,
-          name: prepareData.order_name,
-          amount: prepareData.amount,
-          buyer_email: prepareData.buyer_email,
-          buyer_name: prepareData.buyer_name
-        },
-        async (rsp) => {
-          if (rsp.success) {
-            // 결제 성공 시 서버에서 검증
-            try {
-              const verifyRes = await fetch('/api/payments/verify', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                  imp_uid: rsp.imp_uid,
-                  merchant_uid: rsp.merchant_uid
-                })
-              });
-
-              const verifyData = await verifyRes.json();
-
-              if (verifyData.success) {
-                alert(`결제가 완료되었습니다!\n충전 포인트: ${amount.toLocaleString()}P\n현재 보유 포인트: ${verifyData.points.toLocaleString()}P`);
-                setChargeAmount('');
-                fetchPointsData();
-              } else {
-                alert('결제 검증 실패: ' + (verifyData.error || '알 수 없는 오류'));
-              }
-            } catch (error) {
-              console.error('결제 검증 오류:', error);
-              alert('결제 검증 중 오류가 발생했습니다.');
-            }
-          } else {
-            alert('결제 실패: ' + (rsp.error_msg || '알 수 없는 오류'));
-          }
-          setIsLoading(false);
-        }
-      );
     } catch (error) {
       console.error('포인트 충전 오류:', error);
       alert('포인트 충전 중 오류가 발생했습니다.');
+    } finally {
       setIsLoading(false);
     }
   };

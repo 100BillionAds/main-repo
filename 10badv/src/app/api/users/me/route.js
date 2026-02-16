@@ -65,7 +65,8 @@ export async function PUT(request) {
       );
     }
     
-    const { name, username, bio, phone, currentPassword, newPassword, avatar_url } = await request.json();
+    const body = await request.json();
+    const { name, username, bio, phone, currentPassword, newPassword, avatar_url } = body;
     
     const connection = await mysql.createConnection(dbConfig);
     
@@ -106,22 +107,46 @@ export async function PUT(request) {
       // 새 비밀번호 해시화
       const hashedPassword = await bcrypt.hash(newPassword, 10);
       
-      // 비밀번호 포함 업데이트
+      // UPDATE 쿼리 동적 생성 (비밀번호 포함)
+      const fields = [];
+      const values = [];
+      
+      if (username !== undefined) { fields.push('email = ?'); values.push(username); }
+      if (bio !== undefined) { fields.push('bio = ?'); values.push(bio); }
+      if (phone !== undefined) { fields.push('phone = ?'); values.push(phone); }
+      if (avatar_url !== undefined) { fields.push('avatar_url = ?'); values.push(avatar_url); }
+      fields.push('password = ?');
+      values.push(hashedPassword);
+      
+      values.push(session.user.id);
+      
       await connection.execute(
-        'UPDATE users SET email = ?, bio = ?, phone = ?, password = ?, avatar_url = ? WHERE id = ?',
-        [username, bio, phone, hashedPassword, avatar_url, session.user.id]
+        `UPDATE users SET ${fields.join(', ')} WHERE id = ?`,
+        values
       );
     } else {
-      // 비밀번호 제외 업데이트
-      await connection.execute(
-        'UPDATE users SET email = ?, bio = ?, phone = ?, avatar_url = ? WHERE id = ?',
-        [username, bio, phone, avatar_url, session.user.id]
-      );
+      // 비밀번호 변경 없이 다른 필드만 업데이트
+      const fields = [];
+      const values = [];
+      
+      if (username !== undefined) { fields.push('email = ?'); values.push(username); }
+      if (bio !== undefined) { fields.push('bio = ?'); values.push(bio); }
+      if (phone !== undefined) { fields.push('phone = ?'); values.push(phone); }
+      if (avatar_url !== undefined) { fields.push('avatar_url = ?'); values.push(avatar_url); }
+      
+      if (fields.length > 0) {
+        values.push(session.user.id);
+        
+        await connection.execute(
+          `UPDATE users SET ${fields.join(', ')} WHERE id = ?`,
+          values
+        );
+      }
     }
     
     // 업데이트된 사용자 정보 조회
     const [updatedUsers] = await connection.execute(
-      'SELECT id, name, email, username, role, points, bio, phone, created_at FROM users WHERE id = ?',
+      'SELECT id, name, email, username, role, points, avatar_url, bio, phone, created_at FROM users WHERE id = ?',
       [session.user.id]
     );
     

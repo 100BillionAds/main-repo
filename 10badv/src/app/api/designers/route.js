@@ -27,6 +27,8 @@ export async function GET(request) {
         u.username,
         u.email,
         u.role,
+        u.avatar_url,
+        u.bio,
         u.created_at,
         COALESCE(AVG(r.rating), 0) as rating,
         COUNT(DISTINCT t.id) as completed_works,
@@ -49,7 +51,7 @@ export async function GET(request) {
       params.push(`%${specialty}%`);
     }
     
-    query += ' GROUP BY u.id, u.name, u.username, u.email, u.role, u.created_at';
+    query += ' GROUP BY u.id, u.name, u.username, u.email, u.role, u.avatar_url, u.bio, u.created_at';
     query += ' ORDER BY rating DESC, completed_works DESC';
     query += ` LIMIT ${limit} OFFSET ${offset}`;
     
@@ -60,12 +62,16 @@ export async function GET(request) {
       const specialtyList = designer.specialty ? designer.specialty.split(',') : [];
       const completionRate = designer.total_transactions > 0 
         ? Math.round((designer.total_completed / designer.total_transactions) * 100)
-        : 0;
+        : 100; // 거래가 없으면 100%로 표시
       
       return {
-        ...designer,
-        avatar_url: null, // 기본값
-        bio: null, // 기본값
+        id: designer.id,
+        name: designer.name,
+        username: designer.username,
+        email: designer.email,
+        role: designer.role,
+        avatar_url: designer.avatar_url,
+        bio: designer.bio,
         specialty: specialtyList[0] || '전문분야 미설정',
         tags: specialtyList.slice(0, 3),
         is_verified: parseInt(designer.completed_works) > 0,

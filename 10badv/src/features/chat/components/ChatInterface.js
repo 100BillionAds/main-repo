@@ -374,16 +374,20 @@ export default function ChatInterface() {
                   onClick={() => setSelectedRoom(room)}
                 >
                   <div className={styles.roomAvatar}>
-                    👤
+                    {room.other_user_avatar ? (
+                      <img src={room.other_user_avatar} alt="프로필" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                    ) : (
+                      room.other_user_name?.charAt(0) || '👤'
+                    )}
                   </div>
                   <div className={styles.roomInfo}>
                     <div className={styles.roomNameWrapper}>
                       <div className={styles.roomName}>{room.other_user_name}</div>
-                      {room.other_is_buyer && (
-                        <span className={styles.buyerBadge}>✓ 구매자</span>
+                      {room.transaction_id && room.buyer_id === parseInt(session?.user?.id) && (
+                        <span className={styles.myBuyerBadge}>✓ 내가 구매</span>
                       )}
-                      {room.i_am_buyer && (
-                        <span className={styles.sellerBadge}>✓ 내가 구매</span>
+                      {room.transaction_id && room.buyer_id === room.other_user_id && (
+                        <span className={styles.buyerBadge}>✓ 구매자</span>
                       )}
                     </div>
                     <div className={styles.roomLastMessage}>{room.last_message || '메시지 없음'}</div>
@@ -416,11 +420,11 @@ export default function ChatInterface() {
                 <div className={styles.chatHeaderInfo}>
                   <div className={styles.chatRoomNameWrapper}>
                     <h3 className={styles.chatRoomName}>{selectedRoom.other_user_name}</h3>
-                    {selectedRoom.other_is_buyer && (
-                      <span className={styles.buyerBadgeHeader}>✓ 구매자</span>
-                    )}
-                    {selectedRoom.i_am_buyer && (
+                    {selectedRoom.transaction_id && selectedRoom.buyer_id === parseInt(session?.user?.id) && (
                       <span className={styles.myBuyerBadgeHeader}>✓ 내가 구매</span>
+                    )}
+                    {selectedRoom.transaction_id && selectedRoom.buyer_id === selectedRoom.other_user_id && (
+                      <span className={styles.buyerBadgeHeader}>✓ 구매자</span>
                     )}
                   </div>
                   <p className={styles.chatRoomStatus}>
@@ -483,11 +487,25 @@ export default function ChatInterface() {
                   <>
                     {messages.map((msg) => {
                       const isMe = msg.sender_id === session?.user?.id;
+                      const avatarUrl = isMe ? session?.user?.avatar_url : selectedRoom.other_user_avatar;
+                      const senderName = isMe ? session?.user?.name : selectedRoom.other_user_name;
+                      
                       return (
                         <div
                           key={msg.id}
                           className={`${styles.message} ${isMe ? styles.messageMe : styles.messageOther}`}
                         >
+                          {!isMe && (
+                            <div className={styles.messageAvatar}>
+                              {avatarUrl ? (
+                                <img src={avatarUrl} alt="프로필" style={{ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '50%' }} />
+                              ) : (
+                                <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#667eea', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 'bold' }}>
+                                  {senderName?.charAt(0) || '👤'}
+                                </div>
+                              )}
+                            </div>
+                          )}
                           <div className={styles.messageContent}>
                             <div className={styles.messageBubble}>
                               {msg.message_type === 'image' && msg.file_url ? (

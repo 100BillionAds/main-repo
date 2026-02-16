@@ -191,11 +191,18 @@ export async function PATCH(request, { params }) {
         [transaction.amount, transaction.designer_id]
       );
       
-      // 포인트 내역 기록
+      // 업데이트된 잔액 조회
+      const [updatedUser] = await connection.execute(
+        'SELECT points FROM users WHERE id = ?',
+        [transaction.designer_id]
+      );
+      const balanceAfter = updatedUser[0].points;
+      
+      // 포인트 내역 기록 (balance_after 포함)
       await connection.execute(
-        `INSERT INTO point_transactions (user_id, amount, type, description, created_at) 
-         VALUES (?, ?, 'earn', ?, NOW())`,
-        [transaction.designer_id, transaction.amount, `거래 #${id} 완료 대금 지급`]
+        `INSERT INTO point_transactions (user_id, amount, type, description, balance_after, created_at) 
+         VALUES (?, ?, 'earn', ?, ?, NOW())`,
+        [transaction.designer_id, transaction.amount, `거래 #${id} 완료 대금 지급`, balanceAfter]
       );
     }
     

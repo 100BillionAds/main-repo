@@ -111,6 +111,55 @@
   margin: 0;
 }
 
+/* 포인트 카드 */
+.pointsCard {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  padding: 1.25rem 1.5rem;
+  border-radius: 1rem;
+  box-shadow: 0 4px 12px rgba(251, 191, 36, 0.3);
+}
+
+.pointsIcon {
+  font-size: 2rem;
+}
+
+.pointsInfo {
+  flex: 1;
+}
+
+.pointsLabel {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.pointsValue {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: white;
+}
+
+.chargeButton {
+  padding: 0.625rem 1.25rem;
+  background: white;
+  color: #f59e0b;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.chargeButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
 .adminButton {
   padding: 1rem 1.5rem;
   background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);

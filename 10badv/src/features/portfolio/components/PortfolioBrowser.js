@@ -76,6 +76,16 @@ export default function PortfolioBrowser({ session }) {
       return;
     }
     
+    // 자기 자신의 포트폴리오는 문의 불가
+    if (portfolio.designer_id === session.user.id) {
+      alert('본인의 포트폴리오에는 문의할 수 없습니다.');
+      return;
+    }
+    
+    console.log('문의하기 클릭:', portfolio);
+    console.log('designer_id:', portfolio.designer_id);
+    console.log('portfolio_id:', portfolio.id);
+    
     // 채팅방 생성 또는 열기
     try {
       const response = await fetch('/api/chat/rooms', {
@@ -91,6 +101,7 @@ export default function PortfolioBrowser({ session }) {
       });
       
       const data = await response.json();
+      console.log('채팅방 생성 응답:', data);
       
       if (data.success) {
         router.push(`/chat?room=${data.roomId}`);
@@ -252,7 +263,7 @@ export default function PortfolioBrowser({ session }) {
             return (
               <Link
                 key={portfolio.id}
-                href={`/designers/${portfolio.user_id}`}
+                href={`/designers/${portfolio.designer_id}`}
                 className={`${styles.card} ${isPurchased ? styles.cardPurchased : ''}`}
               >
                 {isPurchased && (

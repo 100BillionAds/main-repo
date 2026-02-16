@@ -16,6 +16,7 @@ export default function Dashboard() {
     completedTransactions: 67,
     recentUsers: [],
   });
+  const [userPoints, setUserPoints] = useState(0);
   const [recentTransactions, setRecentTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -32,6 +33,7 @@ export default function Dashboard() {
     } else if (session) {
       // 일반 사용자는 자신의 거래 내역만 조회
       fetchMyTransactions();
+      fetchUserPoints();
     } else {
       setLoading(false);
     }
@@ -48,6 +50,20 @@ export default function Dashboard() {
       console.error('거래 내역 로딩 실패:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUserPoints = async () => {
+    try {
+      const response = await fetch('/api/users/me');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setUserPoints(data.user.points || 0);
+        }
+      }
+    } catch (error) {
+      console.error('포인트 조회 실패:', error);
     }
   };
 
@@ -89,14 +105,28 @@ export default function Dashboard() {
         <div className={styles.welcomeSection}>
           <div className={styles.welcomeContent}>
             <div className={styles.userAvatar}>
-              {session.user?.name?.charAt(0) || 'U'}
+              {session.user?.avatar_url ? (
+                <img src={session.user.avatar_url} alt="프로필" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+              ) : (
+                session.user?.name?.charAt(0) || 'U'
+              )}
             </div>
             <div>
               <h1 className={styles.welcomeTitle}>
                 안녕하세요, <span className={styles.userName}>{session.user?.name}</span>님! 👋
               </h1>
-              <p className={styles.welcomeSubtitle}>관리자 대시보드에 오신 것을 환영합니다</p>
+              <p className={styles.welcomeSubtitle}>오늘도 멋진 하루 보내세요!</p>
             </div>
+          </div>
+          <div className={styles.pointsCard}>
+            <div className={styles.pointsIcon}>💰</div>
+            <div className={styles.pointsInfo}>
+              <div className={styles.pointsLabel}>보유 포인트</div>
+              <div className={styles.pointsValue}>{userPoints.toLocaleString()}원</div>
+            </div>
+            <Link href="/points/charge" className={styles.chargeButton}>
+              충전하기
+            </Link>
           </div>
           <Link href="/admin" className={styles.adminButton}>
             🛠️ 관리자 페이지
@@ -206,7 +236,11 @@ export default function Dashboard() {
       <div className={styles.welcomeSection}>
         <div className={styles.welcomeContent}>
           <div className={styles.userAvatar}>
-            {session.user?.name?.charAt(0) || 'U'}
+            {session.user?.avatar_url ? (
+              <img src={session.user.avatar_url} alt="프로필" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+            ) : (
+              session.user?.name?.charAt(0) || 'U'
+            )}
           </div>
           <div>
             <h1 className={styles.welcomeTitle}>

@@ -273,6 +273,12 @@
   color: #991b1b;
 }
 
+.badgeBlacklisted {
+  background: linear-gradient(135deg, #1e1e1e 0%, #3a3a3a 100%);
+  color: #ffffff;
+  font-weight: 700;
+}
+
 /* 날짜 및 숫자 셀 */
 .dateCell,
 .numberCell {
@@ -312,6 +318,12 @@
 .actionPromote:hover {
   background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
   border-color: #3b82f6;
+}
+
+.actionBlacklist:hover {
+  background: linear-gradient(135deg, #1e1e1e 0%, #3a3a3a 100%);
+  border-color: #000000;
+  color: white;
 }
 
 .actionBan:hover {

@@ -46,9 +46,13 @@ export async function GET(request) {
           ELSE u1.name
         END as other_user_display_name,
         CASE 
-          WHEN cr.user1_id = ? THEN cr.user2_id
-          ELSE cr.user1_id
+          WHEN cr.user1_id = ? THEN u2.id
+          ELSE u1.id
         END as other_user_id,
+        CASE 
+          WHEN cr.user1_id = ? THEN u2.avatar_url
+          ELSE u1.avatar_url
+        END as other_user_avatar,
         CASE
           WHEN cr.portfolio_id IS NOT NULL AND EXISTS(
             SELECT 1 FROM transactions WHERE portfolio_id = cr.portfolio_id AND buyer_id = (
@@ -78,7 +82,7 @@ export async function GET(request) {
       LEFT JOIN transactions t ON cr.transaction_id = t.id
       WHERE cr.user1_id = ? OR cr.user2_id = ?
       ORDER BY cr.last_message_at DESC
-    `, [userId, userId, userId, userId, userId, userId, userId, userId]);
+    `, [userId, userId, userId, userId, userId, userId, userId, userId, userId]);
     
     await connection.end();
     
@@ -88,12 +92,12 @@ export async function GET(request) {
         id: room.id,
         other_user_name: room.other_user_display_name || room.other_user_name,
         other_user_id: room.other_user_id,
-        other_user_image: room.other_user_image,
+        other_user_avatar: room.other_user_avatar,
         last_message: room.last_message,
         last_message_time: room.last_message_at,
         portfolio_title: room.portfolio_title,
-        other_is_buyer: room.other_is_buyer ? true : false,
-        i_am_buyer: room.i_am_buyer ? true : false,
+        buyer_id: room.transaction_buyer_id,
+        designer_id: room.transaction_designer_id,
         payment_id: room.payment_id,
         unread_count: room.unread_count || 0,
         transaction_id: room.transaction_id,
@@ -125,9 +129,19 @@ export async function POST(request) {
     
     const { designerId, portfolioId, transactionId, initialMessage } = await request.json();
     
+    console.log('채팅방 생성 요청:', { designerId, portfolioId, transactionId, initialMessage, userId: session.user.id });
+    
     if (!designerId) {
       return NextResponse.json(
         { success: false, error: '디자이너 ID가 필요합니다.' },
+        { status: 400 }
+      );
+    }
+    
+    // 자기 자신과는 채팅방을 만들 수 없음
+    if (designerId === session.user.id) {
+      return NextResponse.json(
+        { success: false, error: '자기 자신과는 채팅할 수 없습니다.' },
         { status: 400 }
       );
     }
@@ -137,11 +151,15 @@ export async function POST(request) {
     const user1_id = Math.min(session.user.id, designerId);
     const user2_id = Math.max(session.user.id, designerId);
     
+    console.log('채팅방 참가자:', { user1_id, user2_id });
+    
     // 기존 채팅방 확인
     const [existingRooms] = await connection.execute(
       'SELECT * FROM chat_rooms WHERE user1_id = ? AND user2_id = ?',
       [user1_id, user2_id]
     );
+    
+    console.log('기존 채팅방:', existingRooms.length > 0 ? existingRooms[0].id : '없음');
     
     let roomId;
     
@@ -172,6 +190,7 @@ export async function POST(request) {
       );
       
       roomId = result.insertId;
+      console.log('새 채팅방 생성:', roomId);
     }
     
     // 초기 메시지가 있으면 저장
@@ -183,6 +202,8 @@ export async function POST(request) {
     }
     
     await connection.end();
+    
+    console.log('채팅방 생성 완료:', roomId);
     
     return NextResponse.json({
       success: true,

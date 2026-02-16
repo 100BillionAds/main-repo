@@ -65,7 +65,7 @@ export async function GET(request) {
   }
 }
 
-// POST: 포인트 충전
+// POST: 포인트 충전 (테스트용 - 바로 충전)
 export async function POST(request) {
   const connection = await mysql.createConnection(dbConfig);
   try {
@@ -74,7 +74,7 @@ export async function POST(request) {
       return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
     }
 
-    const { amount, payment_method } = await request.json();
+    const { amount } = await request.json();
 
     if (!amount || amount <= 0) {
       return NextResponse.json({ error: '충전 금액을 확인해주세요.' }, { status: 400 });
@@ -102,7 +102,7 @@ export async function POST(request) {
       `INSERT INTO point_transactions 
        (user_id, type, amount, fee, balance_after, description, status) 
        VALUES (?, 'charge', ?, 0, ?, ?, 'completed')`,
-      [session.user.id, amount, newBalance, `포인트 충전 (${payment_method || '카드'})`]
+      [session.user.id, amount, newBalance, '포인트 충전 (테스트)']
     );
 
     await connection.commit();

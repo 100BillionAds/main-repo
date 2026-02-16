@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import styles from './profile.module.css';
 
 export default function ProfileEditPage() {
   const { data: session, status } = useSession();
@@ -107,6 +109,7 @@ export default function ProfileEditPage() {
       if (avatarFile) {
         const formDataUpload = new FormData();
         formDataUpload.append('file', avatarFile);
+        formDataUpload.append('type', 'avatar');
         
         const uploadResponse = await fetch('/api/upload', {
           method: 'POST',
@@ -116,11 +119,15 @@ export default function ProfileEditPage() {
         if (uploadResponse.ok) {
           const uploadData = await uploadResponse.json();
           avatarUrl = uploadData.url;
+        } else {
+          const errorData = await uploadResponse.json();
+          setMessage({ type: 'error', text: errorData.error || '이미지 업로드에 실패했습니다.' });
+          setLoading(false);
+          return;
         }
       }
 
       const updateData = {
-        name: formData.name,
         username: formData.username,
         bio: formData.bio,
         phone: formData.phone,
@@ -144,15 +151,22 @@ export default function ProfileEditPage() {
 
       if (res.ok && data.success) {
         setMessage({ type: 'success', text: '프로필이 성공적으로 업데이트되었습니다.' });
-        // 비밀번호 필드 초기화
+        
+        // 아바타 URL 업데이트
+        if (data.user.avatar_url) {
+          setCurrentAvatar(data.user.avatar_url);
+        }
+        
+        // 비밀번호 필드 및 아바타 파일 초기화
         setFormData(prev => ({
           ...prev,
           currentPassword: '',
           newPassword: '',
           confirmPassword: ''
         }));
+        setAvatarFile(null);
+        setAvatarPreview(null);
         
-        // 3초 후 메시지 자동 제거
         setTimeout(() => {
           setMessage({ type: '', text: '' });
         }, 3000);
@@ -169,83 +183,71 @@ export default function ProfileEditPage() {
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">로딩 중...</p>
+      <div className={styles.container}>
+        <div style={{ textAlign: 'center', padding: '3rem' }}>
+          <div className={styles.spinner}></div>
+          <p>로딩 중...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 py-12 px-4">
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-white rounded-xl shadow-lg p-8">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-800">회원정보 수정</h1>
-            <p className="mt-2 text-gray-600">프로필 정보를 업데이트하세요</p>
-          </div>
+    <div className={styles.container}>
+      <div className={styles.content}>
+        <div className={styles.header}>
+          <Link href="/dashboard" className={styles.backLink}>
+            ← 대시보드로
+          </Link>
+          <h1 className={styles.title}>⚙️ 프로필 편집</h1>
+          <p className={styles.subtitle}>내 정보를 관리하세요</p>
+        </div>
 
+        <div className={styles.card}>
           {message.text && (
-            <div className={`mb-6 p-4 rounded-lg ${
-              message.type === 'success' 
-                ? 'bg-green-50 text-green-800 border border-green-200' 
-                : 'bg-red-50 text-red-800 border border-red-200'
-            }`}>
-              {message.text}
+            <div className={`${styles.message} ${message.type === 'success' ? styles.messageSuccess : styles.messageError}`}>
+              {message.type === 'success' ? '✓' : '✗'} {message.text}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* 프로필 사진 */}
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-800 border-b pb-2">프로필 사진</h2>
-              <div className="flex items-center gap-6">
-                <div className="relative">
-                  <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-gray-200 bg-gray-100">
-                    {avatarPreview || currentAvatar ? (
-                      <img 
-                        src={avatarPreview || currentAvatar} 
-                        alt="프로필 사진" 
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-4xl text-gray-400">
-                        {formData.name?.charAt(0) || session?.user?.name?.charAt(0) || '👤'}
-                      </div>
-                    )}
-                  </div>
+          {/* 아바타 섹션 */}
+          <div className={styles.avatarSection}>
+            <div className={styles.avatarContainer}>
+              {avatarPreview || currentAvatar ? (
+                <img 
+                  src={avatarPreview || currentAvatar} 
+                  alt="프로필" 
+                  className={styles.avatar}
+                />
+              ) : (
+                <div className={styles.avatar}>
+                  {formData.name?.charAt(0) || session?.user?.name?.charAt(0) || '👤'}
                 </div>
-                <div className="flex-1">
-                  <label 
-                    htmlFor="avatar" 
-                    className="inline-block px-6 py-2 bg-blue-600 text-white rounded-lg cursor-pointer hover:bg-blue-700 transition-all"
-                  >
-                    📷 사진 변경
-                  </label>
-                  <input
-                    type="file"
-                    id="avatar"
-                    accept="image/*"
-                    onChange={handleAvatarChange}
-                    className="hidden"
-                  />
-                  <p className="mt-2 text-sm text-gray-500">5MB 이하의 이미지 파일</p>
-                  {avatarFile && (
-                    <p className="mt-1 text-sm text-blue-600">✓ {avatarFile.name}</p>
-                  )}
-                </div>
-              </div>
+              )}
+              <label className={styles.avatarUploadButton}>
+                📷
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarChange}
+                />
+              </label>
             </div>
+            <div className={styles.avatarLabel}>
+              {avatarFile ? `✓ ${avatarFile.name}` : '프로필 사진 (최대 5MB)'}
+            </div>
+          </div>
 
+          <form onSubmit={handleSubmit} className={styles.form}>
             {/* 기본 정보 */}
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-800 border-b pb-2">기본 정보</h2>
+            <div className={styles.formSection}>
+              <div className={styles.sectionTitle}>
+                👤 기본 정보
+              </div>
               
-              <div>
-                <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
-                  아이디 (변경 불가)
+              <div className={styles.formGroup}>
+                <label htmlFor="username" className={styles.label}>
+                  아이디
                 </label>
                 <input
                   type="text"
@@ -253,14 +255,13 @@ export default function ProfileEditPage() {
                   name="username"
                   value={formData.username}
                   disabled
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed text-gray-600"
+                  className={`${styles.input} ${styles.inputDisabled}`}
                 />
-                <p className="mt-1 text-xs text-gray-500">아이디는 변경할 수 없습니다.</p>
               </div>
 
-              <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                  이름 (변경 불가)
+              <div className={styles.formGroup}>
+                <label htmlFor="name" className={styles.label}>
+                  이름
                 </label>
                 <input
                   type="text"
@@ -268,13 +269,12 @@ export default function ProfileEditPage() {
                   name="name"
                   value={formData.name}
                   disabled
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed text-gray-600"
+                  className={`${styles.input} ${styles.inputDisabled}`}
                 />
-                <p className="mt-1 text-xs text-gray-500">이름은 변경할 수 없습니다.</p>
               </div>
 
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              <div className={styles.formGroup}>
+                <label htmlFor="email" className={styles.label}>
                   이메일
                 </label>
                 <input
@@ -283,13 +283,13 @@ export default function ProfileEditPage() {
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  className={styles.input}
                   placeholder="이메일을 입력하세요"
                 />
               </div>
 
-              <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+              <div className={styles.formGroup}>
+                <label htmlFor="phone" className={styles.label}>
                   전화번호
                 </label>
                 <input
@@ -298,13 +298,13 @@ export default function ProfileEditPage() {
                   name="phone"
                   value={formData.phone}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  className={styles.input}
                   placeholder="010-1234-5678"
                 />
               </div>
 
-              <div>
-                <label htmlFor="bio" className="block text-sm font-medium text-gray-700 mb-1">
+              <div className={styles.formGroup}>
+                <label htmlFor="bio" className={styles.label}>
                   자기소개
                 </label>
                 <textarea
@@ -312,83 +312,91 @@ export default function ProfileEditPage() {
                   name="bio"
                   value={formData.bio}
                   onChange={handleChange}
-                  rows={4}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
+                  className={styles.textarea}
                   placeholder="간단한 자기소개를 작성해주세요"
                 />
               </div>
             </div>
 
             {/* 비밀번호 변경 */}
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-800 border-b pb-2">비밀번호 변경</h2>
-              <p className="text-sm text-gray-600">비밀번호를 변경하지 않으려면 비워두세요.</p>
-              
-              <div>
-                <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                  현재 비밀번호
-                </label>
-                <input
-                  type="password"
-                  id="currentPassword"
-                  name="currentPassword"
-                  value={formData.currentPassword}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  placeholder="현재 비밀번호"
-                />
-              </div>
+            <div className={styles.formSection}>
+              <div className={styles.passwordSection}>
+                <div className={styles.sectionTitle}>
+                  🔒 비밀번호 변경
+                </div>
+                <p style={{ fontSize: '0.875rem', color: '#666', marginBottom: '1rem' }}>
+                  비밀번호를 변경하지 않으려면 비워두세요
+                </p>
+                
+                <div className={styles.formGroup}>
+                  <label htmlFor="currentPassword" className={styles.label}>
+                    현재 비밀번호
+                  </label>
+                  <input
+                    type="password"
+                    id="currentPassword"
+                    name="currentPassword"
+                    value={formData.currentPassword}
+                    onChange={handleChange}
+                    className={styles.input}
+                    placeholder="현재 비밀번호"
+                  />
+                </div>
 
-              <div>
-                <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                  새 비밀번호
-                </label>
-                <input
-                  type="password"
-                  id="newPassword"
-                  name="newPassword"
-                  value={formData.newPassword}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  placeholder="새 비밀번호"
-                />
-              </div>
+                <div className={styles.formGroup}>
+                  <label htmlFor="newPassword" className={styles.label}>
+                    새 비밀번호
+                  </label>
+                  <input
+                    type="password"
+                    id="newPassword"
+                    name="newPassword"
+                    value={formData.newPassword}
+                    onChange={handleChange}
+                    className={styles.input}
+                    placeholder="새 비밀번호"
+                  />
+                </div>
 
-              <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                  새 비밀번호 확인
-                </label>
-                <input
-                  type="password"
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  placeholder="새 비밀번호 확인"
-                />
+                <div className={styles.formGroup}>
+                  <label htmlFor="confirmPassword" className={styles.label}>
+                    새 비밀번호 확인
+                  </label>
+                  <input
+                    type="password"
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    className={styles.input}
+                    placeholder="새 비밀번호 확인"
+                  />
+                </div>
               </div>
             </div>
 
             {/* 버튼 */}
-            <div className="flex gap-4 pt-4">
-              <button
-                type="submit"
-                disabled={loading}
-                className={`flex-1 py-3 rounded-lg font-semibold text-white transition-all ${
-                  loading 
-                    ? 'bg-gray-400 cursor-not-allowed' 
-                    : 'bg-blue-600 hover:bg-blue-700 active:scale-[0.98]'
-                }`}
-              >
-                {loading ? '저장 중...' : '변경사항 저장'}
-              </button>
+            <div className={styles.buttonGroup}>
               <button
                 type="button"
                 onClick={() => router.back()}
-                className="px-6 py-3 rounded-lg font-semibold text-gray-700 bg-gray-200 hover:bg-gray-300 active:scale-[0.98] transition-all"
+                className={`${styles.button} ${styles.buttonSecondary}`}
               >
                 취소
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className={`${styles.button} ${styles.buttonPrimary}`}
+              >
+                {loading ? (
+                  <>
+                    <div className={styles.spinner}></div>
+                    저장 중...
+                  </>
+                ) : (
+                  '변경사항 저장'
+                )}
               </button>
             </div>
           </form>

@@ -67,6 +67,38 @@ export default function UserManagement() {
       } catch (error) {
         alert('삭제 중 오류가 발생했습니다');
       }
+    } else if (action === '블랙리스트 추가') {
+      if (!confirm(`${user.name}님을 블랙리스트에 추가하시겠습니까?`)) return;
+      
+      try {
+        const response = await fetch('/api/admin/users', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id, updates: { status: 'blacklisted' } }),
+        });
+
+        if (response.ok) {
+          alert('블랙리스트에 추가되었습니다');
+          fetchUsers();
+        }
+      } catch (error) {
+        alert('블랙리스트 추가 중 오류가 발생했습니다');
+      }
+    } else if (action === '블랙리스트 해제') {
+      try {
+        const response = await fetch('/api/admin/users', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id, updates: { status: 'active' } }),
+        });
+
+        if (response.ok) {
+          alert('블랙리스트에서 해제되었습니다');
+          fetchUsers();
+        }
+      } catch (error) {
+        alert('블랙리스트 해제 중 오류가 발생했습니다');
+      }
     } else {
       setSelectedUser({ ...user, action });
       setShowModal(true);
@@ -216,34 +248,51 @@ export default function UserManagement() {
                   </span>
                 </td>
                 <td>
-                  <span className={`${styles.badge} ${styles.badgeActive}`}>
-                    🟢 활성
+                  <span className={`${styles.badge} ${
+                    user.status === 'blacklisted' ? styles.badgeBlacklisted :
+                    user.status === 'banned' ? styles.badgeBanned :
+                    styles.badgeActive
+                  }`}>
+                    {user.status === 'blacklisted' ? '🚫 블랙리스트' :
+                     user.status === 'banned' ? '⛔ 정지' :
+                     '🟢 활성'}
                   </span>
                 </td>
                 <td className={styles.dateCell}>
                   {new Date(user.created_at).toLocaleDateString('ko-KR')}
                 </td>
-                <td className={styles.numberCell}>0</td>
-                <td className={styles.numberCell}>0</td>
+                <td className={styles.numberCell}>{user.portfolio_count || 0}</td>
+                <td className={styles.numberCell}>{user.transaction_count || 0}</td>
                 <td>
                   <div className={styles.actions}>
-                    {user.role !== 'admin' && user.status === 'active' && (
+                    {user.status !== 'blacklisted' && user.status !== 'banned' && (
                       <>
+                        {user.role !== 'admin' && (
+                          <button
+                            onClick={() => handleUserAction(user, '관리자로 승격')}
+                            className={`${styles.actionButton} ${styles.actionPromote}`}
+                            title="관리자로 승격"
+                          >
+                            ⬆️
+                          </button>
+                        )}
                         <button
-                          onClick={() => handleUserAction(user, '관리자로 승격')}
-                          className={`${styles.actionButton} ${styles.actionPromote}`}
-                          title="관리자로 승격"
-                        >
-                          ⬆️
-                        </button>
-                        <button
-                          onClick={() => handleUserAction(user, '계정 정지')}
-                          className={`${styles.actionButton} ${styles.actionBan}`}
-                          title="계정 정지"
+                          onClick={() => handleUserAction(user, '블랙리스트 추가')}
+                          className={`${styles.actionButton} ${styles.actionBlacklist}`}
+                          title="블랙리스트 추가"
                         >
                           🚫
                         </button>
                       </>
+                    )}
+                    {user.status === 'blacklisted' && (
+                      <button
+                        onClick={() => handleUserAction(user, '블랙리스트 해제')}
+                        className={`${styles.actionButton} ${styles.actionUnban}`}
+                        title="블랙리스트 해제"
+                      >
+                        ✅
+                      </button>
                     )}
                     {user.status === 'banned' && (
                       <button
@@ -252,15 +301,6 @@ export default function UserManagement() {
                         title="정지 해제"
                       >
                         ✅
-                      </button>
-                    )}
-                    {user.role === 'admin' && user.id !== 1 && (
-                      <button
-                        onClick={() => handleUserAction(user, '관리자 권한 제거')}
-                        className={`${styles.actionButton} ${styles.actionDemote}`}
-                        title="일반 회원으로 변경"
-                      >
-                        ⬇️
                       </button>
                     )}
                   </div>

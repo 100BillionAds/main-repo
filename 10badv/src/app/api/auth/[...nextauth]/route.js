@@ -42,6 +42,7 @@ export const authOptions = {
           email: user.email,
           username: user.username,
           role: user.role,
+          avatar_url: user.avatar_url,
         };
       },
     }),
@@ -52,6 +53,7 @@ export const authOptions = {
         token.id = user.id;
         token.username = user.username;
         token.role = user.role;
+        token.avatar_url = user.avatar_url;
       }
       return token;
     },
@@ -60,6 +62,7 @@ export const authOptions = {
         session.user.id = token.id;
         session.user.username = token.username;
         session.user.role = token.role;
+        session.user.avatar_url = token.avatar_url;
       }
       return session;
     },
