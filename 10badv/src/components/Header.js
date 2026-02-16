@@ -118,6 +118,13 @@ export default function Header() {
                     >
                       <span>💳</span> 포인트충전
                     </Link>
+                    <Link 
+                      href="/bug-report" 
+                      className={styles.dropdownItem}
+                      onClick={() => setProfileMenuOpen(false)}
+                    >
+                      <span>🐛</span> 오류신고
+                    </Link>
                     <div className={styles.dropdownDivider}></div>
                     <button
                       onClick={() => {

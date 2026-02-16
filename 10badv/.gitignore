@@ -1,71 +1,67 @@
-# Logs
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+# =============================================
+# 백억광고 (10badv) - .gitignore
+# =============================================
 
-# macOS
+# ----- OS -----
 .DS_Store
+Thumbs.db
 
-# Node
+# ----- Node -----
 node_modules/
 
-# Next.js
+# ----- Next.js -----
 .next/
 out/
-.turbo/
 build/
 dist/
+.turbo/
+*.tsbuildinfo
+next-env.d.ts
 
-# Environment files (보안 중요!)
+# ----- Environment (보안!) -----
 .env
-.env*.local
 .env.local
-.env.development.local
-.env.production.local
-.env.test.local
-
-# ⚠️ .env.example은 커밋 허용 (예시 파일)
+.env*.local
 !.env.example
 
-# IDE
+# ----- Editor -----
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# Testing
+# ----- Testing -----
 coverage/
 *.lcov
 .nyc_output/
 
-# Build/Cache
+# ----- Cache -----
 .cache/
 .eslintcache
-*.tsbuildinfo
-next-env.d.ts
 
-# Uploads (사용자 업로드 파일)
-/public/uploads/
+# ----- Logs -----
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
 
-# Misc
-Thumbs.db
-ehthumbs.db
+# ----- Uploads (S3 이관됨) -----
+public/uploads/**
+!public/uploads/.gitkeep
+!public/uploads/**/.gitkeep
+
+# ----- Secrets / Keys -----
 *.pem
-*.pid
-*.seed
-*.pid.lock
+*.key
 
-# Vercel
+# ----- Vercel -----
 .vercel/
 
-# Generated files
-/src/generated/prisma
+# ----- Generated -----
+src/generated/prisma
 
-# Package manager
+# ----- Package manager -----
 .pnp
 .pnp.js

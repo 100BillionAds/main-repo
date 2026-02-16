@@ -4,8 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "node server.js",
+    "dev:next": "next dev",
     "build": "next build",
     "start": "NODE_ENV=production node server.js",
+    "start:next": "next start",
     "lint": "next lint",
     "format": "prettier --write \"**/*.{js,jsx,json,md}\"",
     "test": "jest",
@@ -13,18 +15,21 @@
     "test:coverage": "jest --coverage"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.990.0",
     "@next-auth/prisma-adapter": "^1.0.7",
     "@portone/browser-sdk": "^0.1.1",
     "@prisma/client": "^6.19.0",
     "axios": "^1.13.2",
     "bcrypt": "^6.0.0",
+    "dotenv": "^17.3.1",
     "mysql2": "^3.15.3",
     "next": "16.0.1",
     "next-auth": "^4.24.13",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "socket.io": "^4.8.1",
-    "socket.io-client": "^4.8.1"
+    "socket.io-client": "^4.8.1",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",

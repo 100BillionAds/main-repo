@@ -13,27 +13,23 @@ export const authOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.username || !credentials?.password) {
-          console.log('❌ 로그인 실패: 아이디/비밀번호 미입력');
-          throw new Error('Please enter username and password');
+          throw new Error('아이디와 비밀번호를 입력해주세요.');
         }
 
         // MySQL에서 사용자 찾기
         const user = await getUserByUsername(credentials.username);
 
         if (!user) {
-          console.log('❌ 로그인 실패: 사용자를 찾을 수 없음 -', credentials.username);
-          throw new Error('No user found with this username');
+          // 보안: 사용자 존재 여부를 노출하지 않는 통합 메시지
+          throw new Error('아이디 또는 비밀번호가 올바르지 않습니다.');
         }
 
-        // 비밀번호 검증 (개발용: 평문 비교)
-        const isValid = credentials.password === user.password;
+        // bcrypt로 비밀번호 검증 (해시 비교)
+        const isValid = await bcrypt.compare(credentials.password, user.password);
 
         if (!isValid) {
-          console.log('❌ 로그인 실패: 비밀번호 불일치 -', credentials.username);
-          throw new Error('Invalid password');
+          throw new Error('아이디 또는 비밀번호가 올바르지 않습니다.');
         }
-
-        console.log('✅ 로그인 성공:', user.username, '(역할:', user.role, ')');
 
         // 비밀번호 제외하고 반환
         return {
@@ -73,9 +69,9 @@ export const authOptions = {
   },
   session: {
     strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: 7 * 24 * 60 * 60, // 7 days (보안 강화)
   },
-  secret: process.env.NEXTAUTH_SECRET || 'your-secret-key-change-in-production',
+  secret: process.env.NEXTAUTH_SECRET,
 };
 
 const handler = NextAuth(authOptions);

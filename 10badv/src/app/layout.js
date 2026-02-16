@@ -15,13 +15,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: '10badv - Your Notion-like Workspace',
-  description: 'A modern workspace for notes and collaboration',
+  title: '백억광고 - 간판 디자인 매칭 플랫폼',
+  description: '간판업자와 디자이너를 연결하는 디자인 매칭 마켓플레이스',
+  keywords: ['간판', '디자인', '포트폴리오', '매칭', '백억광고'],
 };
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="ko">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <SessionWrapper>
           {/* Accessibility: skip to content link */}

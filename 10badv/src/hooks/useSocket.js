@@ -10,26 +10,22 @@ export function useSocket(userId) {
   useEffect(() => {
     if (!userId) return;
 
-    // Socket.io 연결
-    socketRef.current = io('http://localhost:3000', {
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || window.location.origin;
+
+    socketRef.current = io(socketUrl, {
       transports: ['websocket', 'polling'],
     });
 
     socketRef.current.on('connect', () => {
-      console.log('✅ Socket 연결됨:', socketRef.current.id);
       setIsConnected(true);
-      
-      // 사용자 인증
       socketRef.current.emit('authenticate', { userId });
     });
 
     socketRef.current.on('disconnect', () => {
-      console.log('❌ Socket 연결 해제');
       setIsConnected(false);
     });
 
-    socketRef.current.on('connect_error', (error) => {
-      console.error('Socket 연결 오류:', error);
+    socketRef.current.on('connect_error', () => {
       setIsConnected(false);
     });
 

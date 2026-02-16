@@ -1,13 +1,17 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcrypt';
-import { getUserByUsername, createUser, getAllUsers, initializeDatabase } from '@/lib/db';
+import pool from '@/lib/db';
+import { getUserByUsername, getUserByEmail, createUser, initializeDatabase } from '@/lib/db';
 
 // 데이터베이스 초기화
 initializeDatabase().then(success => {
   if (success) {
-    console.log('✅ 데이터베이스 초기화 완료');
+    // DB 초기화 완료
   }
 });
+
+// 허용된 역할 (admin은 API를 통해 가입 불가)
+const ALLOWED_ROLES = ['user', 'designer'];
 
 /**
  * POST /api/auth/register - 회원가입
@@ -32,14 +36,26 @@ export async function POST(request) {
       );
     }
 
-    if (password.length < 4) {
+    if (password.length < 6) {
       return NextResponse.json(
-        { error: '비밀번호는 최소 4자 이상이어야 합니다.' },
+        { error: '비밀번호는 최소 6자 이상이어야 합니다.' },
         { status: 400 }
       );
     }
 
-    // 중복 검사 (MySQL에서)
+    // 이메일 형식 검증
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return NextResponse.json(
+        { error: '올바른 이메일 형식이 아닙니다.' },
+        { status: 400 }
+      );
+    }
+
+    // 역할 검증 (admin 가입 차단)
+    const safeRole = ALLOWED_ROLES.includes(role) ? role : 'user';
+
+    // 사용자명 중복 검사
     const existingUser = await getUserByUsername(username);
     if (existingUser) {
       return NextResponse.json(
@@ -48,8 +64,17 @@ export async function POST(request) {
       );
     }
 
+    // 이메일 중복 검사
+    const existingEmail = await getUserByEmail(email);
+    if (existingEmail) {
+      return NextResponse.json(
+        { error: '이미 사용 중인 이메일입니다.' },
+        { status: 400 }
+      );
+    }
+
     // 비밀번호 해싱
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 12);
 
     // MySQL에 사용자 생성
     const newUser = await createUser({
@@ -57,11 +82,9 @@ export async function POST(request) {
       password: hashedPassword,
       name,
       email,
-      role: role || 'user',
+      role: safeRole,
       avatar_url: avatar_url,
     });
-
-    console.log('✅ 회원가입 성공:', username, '(역할:', role, ')');
 
     return NextResponse.json(
       {
@@ -79,25 +102,9 @@ export async function POST(request) {
       { status: 201 }
     );
   } catch (error) {
-    console.error('❌ Register error:', error);
+    console.error('Register error:', error);
     return NextResponse.json(
       { error: '회원가입 중 오류가 발생했습니다.' },
-      { status: 500 }
-    );
-  }
-}
-
-/**
- * GET /api/auth/register - 사용자 목록 조회 (관리자용)
- */
-export async function GET() {
-  try {
-    const users = await getAllUsers();
-    return NextResponse.json({ users });
-  } catch (error) {
-    console.error('❌ Get users error:', error);
-    return NextResponse.json(
-      { error: '사용자 목록 조회 실패' },
       { status: 500 }
     );
   }

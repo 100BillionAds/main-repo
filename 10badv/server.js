@@ -3,21 +3,25 @@ const { parse } = require('url');
 const next = require('next');
 const { Server } = require('socket.io');
 const mysql = require('mysql2/promise');
+require('dotenv').config({ path: '.env.local' });
 
 const dev = process.env.NODE_ENV !== 'production';
-const hostname = 'localhost';
-const port = 3000;
+const hostname = process.env.HOSTNAME || '0.0.0.0';
+const port = parseInt(process.env.PORT || '3000', 10);
 
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
-// MySQL 연결 설정
-const dbConfig = {
-  host: 'localhost',
-  user: 'root',
-  password: 'merk',
-  database: '10badv'
-};
+// MySQL 풀 설정 (환경변수 사용)
+const dbPool = mysql.createPool({
+  host: process.env.DATABASE_HOST || 'localhost',
+  user: process.env.DATABASE_USER || 'root',
+  password: process.env.DATABASE_PASSWORD || '',
+  database: process.env.DATABASE_NAME || '10badv',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+});
 
 app.prepare().then(() => {
   const httpServer = createServer(async (req, res) => {
@@ -33,7 +37,7 @@ app.prepare().then(() => {
 
   const io = new Server(httpServer, {
     cors: {
-      origin: '*',
+      origin: process.env.NEXT_PUBLIC_SOCKET_URL || (dev ? 'http://localhost:3000' : undefined),
       methods: ['GET', 'POST']
     }
   });
@@ -42,7 +46,6 @@ app.prepare().then(() => {
   const userSockets = new Map(); // userId -> socketId 매핑
 
   io.on('connection', (socket) => {
-    console.log('✅ 소켓 연결:', socket.id);
 
     // 사용자 인증 및 룸 조인
     socket.on('authenticate', async (data) => {
@@ -51,12 +54,10 @@ app.prepare().then(() => {
       if (userId) {
         userSockets.set(userId, socket.id);
         socket.userId = userId;
-        console.log(`👤 사용자 ${userId} 인증 완료`);
       }
 
       if (roomId) {
         socket.join(`room:${roomId}`);
-        console.log(`🚪 사용자 ${userId}가 방 ${roomId}에 입장`);
         
         // 다른 사용자에게 입장 알림
         socket.to(`room:${roomId}`).emit('user_joined', { userId });
@@ -66,7 +67,6 @@ app.prepare().then(() => {
     // 채팅방 입장
     socket.on('join_room', (roomId) => {
       socket.join(`room:${roomId}`);
-      console.log(`🚪 소켓 ${socket.id}가 방 ${roomId}에 입장`);
     });
 
     // 메시지 전송
@@ -74,7 +74,7 @@ app.prepare().then(() => {
       const { roomId, senderId, message, messageType = 'text', fileUrl = null, fileName = null, fileSize = null } = data;
       
       try {
-        const connection = await mysql.createConnection(dbConfig);
+        const connection = await dbPool.getConnection();
         
         // 채팅방 정보 조회 (거래 ID 포함)
         const [rooms] = await connection.execute(
@@ -114,12 +114,12 @@ app.prepare().then(() => {
           WHERE cm.id = ?
         `, [messageId]);
 
-        await connection.end();
+        connection.release();
 
         // 같은 방의 모든 사용자에게 메시지 전송
         io.to(`room:${roomId}`).emit('new_message', messages[0]);
         
-        console.log(`💬 메시지 전송 (방 ${roomId}, 타입: ${messageType}):`, message.substring(0, 50));
+
       } catch (error) {
         console.error('메시지 저장 실패:', error);
         socket.emit('message_error', { error: '메시지 전송에 실패했습니다.' });
@@ -143,14 +143,14 @@ app.prepare().then(() => {
       const { roomId, userId } = data;
       
       try {
-        const connection = await mysql.createConnection(dbConfig);
+        const connection = await dbPool.getConnection();
         
         await connection.execute(
           'UPDATE chat_messages SET is_read = 1 WHERE room_id = ? AND sender_id != ? AND is_read = 0',
           [roomId, userId]
         );
         
-        await connection.end();
+        connection.release();
         
         // 상대방에게 읽음 알림
         socket.to(`room:${roomId}`).emit('messages_read', { userId });
@@ -161,8 +161,6 @@ app.prepare().then(() => {
 
     // 연결 해제
     socket.on('disconnect', () => {
-      console.log('❌ 소켓 연결 해제:', socket.id);
-      
       if (socket.userId) {
         userSockets.delete(socket.userId);
       }
