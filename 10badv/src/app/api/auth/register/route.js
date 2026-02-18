@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import bcrypt from 'bcrypt';
 import pool from '@/lib/db';
 import { getUserByUsername, getUserByEmail, createUser, initializeDatabase } from '@/lib/db';
+import { checkRateLimit } from '@/lib/rateLimit';
 
 // 데이터베이스 초기화
 initializeDatabase().then(success => {
@@ -18,6 +19,15 @@ const ALLOWED_ROLES = ['user', 'designer'];
  */
 export async function POST(request) {
   try {
+    // Rate Limiting: 분당 5회 (회원가입 남용 방지)
+    const { allowed, headers: rlHeaders } = checkRateLimit(request, { limit: 5, windowMs: 60 * 1000 });
+    if (!allowed) {
+      return NextResponse.json(
+        { error: '너무 많은 요청입니다. 잠시 후 다시 시도해주세요.' },
+        { status: 429, headers: rlHeaders }
+      );
+    }
+
     const body = await request.json();
     const { username, password, name, email, role = 'user', avatar_url = null } = body;
 
@@ -36,9 +46,20 @@ export async function POST(request) {
       );
     }
 
-    if (password.length < 6) {
+    if (password.length < 8) {
       return NextResponse.json(
-        { error: '비밀번호는 최소 6자 이상이어야 합니다.' },
+        { error: '비밀번호는 최소 8자 이상이어야 합니다.' },
+        { status: 400 }
+      );
+    }
+
+    // 비밀번호 복잡도 검증 (영문 + 숫자 + 특수문자)
+    const hasLetter = /[a-zA-Z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+    if (!hasLetter || !hasNumber || !hasSpecial) {
+      return NextResponse.json(
+        { error: '비밀번호는 영문, 숫자, 특수문자를 각각 1개 이상 포함해야 합니다.' },
         { status: 400 }
       );
     }

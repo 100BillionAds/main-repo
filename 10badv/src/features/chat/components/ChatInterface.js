@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useSocket } from '@/hooks/useSocket';
 import styles from './ChatInterface.module.css';
 
@@ -381,7 +382,7 @@ export default function ChatInterface() {
                 >
                   <div className={styles.roomAvatar}>
                     {room.other_user_avatar ? (
-                      <img src={room.other_user_avatar} alt="프로필" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                      <Image src={room.other_user_avatar} alt="프로필" width={40} height={40} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
                     ) : (
                       room.other_user_name?.charAt(0) || '👤'
                     )}
@@ -511,7 +512,7 @@ export default function ChatInterface() {
                           {!isMe && (
                             <div className={styles.messageAvatar}>
                               {avatarUrl ? (
-                                <img src={avatarUrl} alt="프로필" style={{ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '50%' }} />
+                                <Image src={avatarUrl} alt="프로필" width={32} height={32} style={{ objectFit: 'cover', borderRadius: '50%' }} />
                               ) : (
                                 <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#667eea', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 'bold' }}>
                                   {senderName?.charAt(0) || '👤'}
@@ -523,7 +524,7 @@ export default function ChatInterface() {
                             <div className={styles.messageBubble}>
                               {msg.message_type === 'image' && msg.file_url ? (
                                 <div className={styles.messageImage}>
-                                  <img src={msg.file_url} alt="전송된 이미지" />
+                                  <Image src={msg.file_url} alt="전송된 이미지" width={300} height={200} sizes="300px" style={{ width: '100%', height: 'auto' }} />
                                 </div>
                               ) : msg.message_type === 'file' && msg.file_url ? (
                                 (() => {
@@ -534,7 +535,7 @@ export default function ChatInterface() {
                                   if (isImage) {
                                     return (
                                       <div className={styles.messageImage}>
-                                        <img src={msg.file_url} alt="이미지" />
+                                        <Image src={msg.file_url} alt="이미지" width={300} height={200} sizes="300px" style={{ width: '100%', height: 'auto' }} />
                                       </div>
                                     );
                                   } else {

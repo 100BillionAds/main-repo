@@ -15,11 +15,18 @@ export async function GET(request) {
         u.id, u.name, u.username, u.email, u.role, u.avatar_url, u.bio, u.created_at,
         u.rating, u.review_count,
         COUNT(DISTINCT p.id) as portfolio_count,
-        (SELECT COUNT(*) FROM transactions WHERE designer_id = u.id AND status = 'completed') as completed_works,
-        (SELECT COUNT(*) FROM transactions WHERE designer_id = u.id) as total_transactions,
+        COALESCE(t.completed_works, 0) as completed_works,
+        COALESCE(t.total_transactions, 0) as total_transactions,
         GROUP_CONCAT(DISTINCT p.category) as specialty
       FROM users u
       LEFT JOIN portfolios p ON u.id = p.designer_id
+      LEFT JOIN (
+        SELECT designer_id,
+          COUNT(*) as total_transactions,
+          SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_works
+        FROM transactions
+        GROUP BY designer_id
+      ) t ON u.id = t.designer_id
       WHERE u.role = 'designer' AND u.status = 'active'
     `;
     const params = [];
@@ -60,11 +67,13 @@ export async function GET(request) {
       };
     });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       designers: processedDesigners,
       total: processedDesigners.length
     });
+    response.headers.set('Cache-Control', 'public, s-maxage=10, stale-while-revalidate=30');
+    return response;
   } catch (error) {
     console.error('디자이너 조회 실패:', error);
     return NextResponse.json({ success: false, error: '디자이너 조회에 실패했습니다.' }, { status: 500 });

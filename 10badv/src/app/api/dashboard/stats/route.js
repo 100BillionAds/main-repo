@@ -17,15 +17,26 @@ export async function GET() {
     const stats = {};
 
     if (isAdmin) {
-      // 관리자: 전체 시스템 통계
-      const [userCount] = await pool.execute('SELECT COUNT(*) as count FROM users');
-      const [designerCount] = await pool.execute("SELECT COUNT(*) as count FROM users WHERE role = 'designer'");
-      const [portfolioCount] = await pool.execute('SELECT COUNT(*) as count FROM portfolios');
-      const [transactionCount] = await pool.execute('SELECT COUNT(*) as count FROM transactions');
-      const [pendingPortfolios] = await pool.execute("SELECT COUNT(*) as count FROM portfolios WHERE status = 'pending'");
-      const [completedTransactions] = await pool.execute("SELECT COUNT(*) as count FROM transactions WHERE status = 'completed'");
-      const [totalRevenue] = await pool.execute("SELECT COALESCE(SUM(commission_amount), 0) as total FROM transactions WHERE status = 'completed'");
-      const [requestCount] = await pool.execute('SELECT COUNT(*) as count FROM requests');
+      // 관리자: 전체 시스템 통계 (병렬 실행으로 응답 속도 최적화)
+      const [
+        [userCount],
+        [designerCount],
+        [portfolioCount],
+        [transactionCount],
+        [pendingPortfolios],
+        [completedTransactions],
+        [totalRevenue],
+        [requestCount]
+      ] = await Promise.all([
+        pool.execute('SELECT COUNT(*) as count FROM users'),
+        pool.execute("SELECT COUNT(*) as count FROM users WHERE role = 'designer'"),
+        pool.execute('SELECT COUNT(*) as count FROM portfolios'),
+        pool.execute('SELECT COUNT(*) as count FROM transactions'),
+        pool.execute("SELECT COUNT(*) as count FROM portfolios WHERE status = 'pending'"),
+        pool.execute("SELECT COUNT(*) as count FROM transactions WHERE status = 'completed'"),
+        pool.execute("SELECT COALESCE(SUM(commission_amount), 0) as total FROM transactions WHERE status = 'completed'"),
+        pool.execute('SELECT COUNT(*) as count FROM requests')
+      ]);
 
       stats.totalUsers = userCount[0].count;
       stats.totalDesigners = designerCount[0].count;
@@ -36,40 +47,47 @@ export async function GET() {
       stats.totalRevenue = totalRevenue[0].total;
       stats.totalRequests = requestCount[0].count;
 
-      // 최근 거래
-      const [recentTransactions] = await pool.execute(`
-        SELECT t.id, t.amount, t.status, t.created_at,
-               buyer.username as buyer_name, seller.username as seller_name
-        FROM transactions t
-        LEFT JOIN users buyer ON t.buyer_id = buyer.id
-        LEFT JOIN users seller ON t.seller_id = seller.id
-        ORDER BY t.created_at DESC LIMIT 5
-      `);
+      // 최근 거래 + 최근 가입 (병렬)
+      const [[recentTransactions], [recentUsers]] = await Promise.all([
+        pool.execute(`
+          SELECT t.id, t.amount, t.status, t.created_at,
+                 buyer.username as buyer_name, seller.username as seller_name
+          FROM transactions t
+          LEFT JOIN users buyer ON t.buyer_id = buyer.id
+          LEFT JOIN users seller ON t.seller_id = seller.id
+          ORDER BY t.created_at DESC LIMIT 5
+        `),
+        pool.execute(
+          'SELECT id, username, email, role, created_at FROM users ORDER BY created_at DESC LIMIT 5'
+        )
+      ]);
       stats.recentTransactions = recentTransactions;
-
-      // 최근 가입
-      const [recentUsers] = await pool.execute(
-        'SELECT id, username, email, role, created_at FROM users ORDER BY created_at DESC LIMIT 5'
-      );
       stats.recentUsers = recentUsers;
     } else {
-      // 일반 사용자 / 디자이너: 개인 통계
-      const [myTransactions] = await pool.execute(
-        'SELECT COUNT(*) as count FROM transactions WHERE buyer_id = ? OR seller_id = ?',
-        [userId, userId]
-      );
-      const [myCompletedTx] = await pool.execute(
-        "SELECT COUNT(*) as count FROM transactions WHERE (buyer_id = ? OR seller_id = ?) AND status = 'completed'",
-        [userId, userId]
-      );
-      const [myPoints] = await pool.execute(
-        'SELECT points FROM users WHERE id = ?',
-        [userId]
-      );
-      const [myRequests] = await pool.execute(
-        'SELECT COUNT(*) as count FROM requests WHERE client_id = ?',
-        [userId]
-      );
+      // 일반 사용자 / 디자이너: 개인 통계 (병렬)
+      const [
+        [myTransactions],
+        [myCompletedTx],
+        [myPoints],
+        [myRequests]
+      ] = await Promise.all([
+        pool.execute(
+          'SELECT COUNT(*) as count FROM transactions WHERE buyer_id = ? OR seller_id = ?',
+          [userId, userId]
+        ),
+        pool.execute(
+          "SELECT COUNT(*) as count FROM transactions WHERE (buyer_id = ? OR seller_id = ?) AND status = 'completed'",
+          [userId, userId]
+        ),
+        pool.execute(
+          'SELECT points FROM users WHERE id = ?',
+          [userId]
+        ),
+        pool.execute(
+          'SELECT COUNT(*) as count FROM requests WHERE client_id = ?',
+          [userId]
+        )
+      ]);
 
       stats.totalTransactions = myTransactions[0].count;
       stats.completedTransactions = myCompletedTx[0].count;
@@ -77,18 +95,24 @@ export async function GET() {
       stats.totalRequests = myRequests[0].count;
 
       if (session.user.role === 'designer') {
-        const [myPortfolios] = await pool.execute(
-          'SELECT COUNT(*) as count FROM portfolios WHERE designer_id = ?',
-          [userId]
-        );
-        const [myProposals] = await pool.execute(
-          'SELECT COUNT(*) as count FROM proposals WHERE designer_id = ?',
-          [userId]
-        );
-        const [myEarnings] = await pool.execute(
-          "SELECT COALESCE(SUM(amount - commission_amount), 0) as total FROM transactions WHERE seller_id = ? AND status = 'completed'",
-          [userId]
-        );
+        const [
+          [myPortfolios],
+          [myProposals],
+          [myEarnings]
+        ] = await Promise.all([
+          pool.execute(
+            'SELECT COUNT(*) as count FROM portfolios WHERE designer_id = ?',
+            [userId]
+          ),
+          pool.execute(
+            'SELECT COUNT(*) as count FROM proposals WHERE designer_id = ?',
+            [userId]
+          ),
+          pool.execute(
+            "SELECT COALESCE(SUM(amount - commission_amount), 0) as total FROM transactions WHERE seller_id = ? AND status = 'completed'",
+            [userId]
+          )
+        ]);
         stats.totalPortfolios = myPortfolios[0].count;
         stats.totalProposals = myProposals[0].count;
         stats.totalEarnings = myEarnings[0].total;

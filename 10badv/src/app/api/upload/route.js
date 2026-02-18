@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { v4 as uuidv4 } from 'uuid';
+import { checkRateLimit } from '@/lib/rateLimit';
 
 const s3Client = new S3Client({
   region: process.env.AWS_REGION || 'ap-northeast-2',
@@ -19,6 +20,15 @@ const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'
 
 export async function POST(request) {
   try {
+    // Rate Limiting: 분당 30회 (S3 비용 방지)
+    const { allowed, headers: rlHeaders } = checkRateLimit(request, { limit: 30, windowMs: 60 * 1000 });
+    if (!allowed) {
+      return NextResponse.json(
+        { success: false, error: '업로드 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.' },
+        { status: 429, headers: rlHeaders }
+      );
+    }
+
     const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json({ success: false, error: '로그인이 필요합니다.' }, { status: 401 });

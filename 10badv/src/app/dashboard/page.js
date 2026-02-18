@@ -4,6 +4,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import styles from './dashboard.module.css';
 
 export default function Dashboard() {
@@ -106,7 +107,7 @@ export default function Dashboard() {
           <div className={styles.welcomeContent}>
             <div className={styles.userAvatar}>
               {session.user?.avatar_url ? (
-                <img src={session.user.avatar_url} alt="프로필" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                <Image src={session.user.avatar_url} alt="프로필" width={80} height={80} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
               ) : (
                 session.user?.name?.charAt(0) || 'U'
               )}
@@ -237,7 +238,7 @@ export default function Dashboard() {
         <div className={styles.welcomeContent}>
           <div className={styles.userAvatar}>
             {session.user?.avatar_url ? (
-              <img src={session.user.avatar_url} alt="프로필" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+              <Image src={session.user.avatar_url} alt="프로필" width={80} height={80} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
             ) : (
               session.user?.name?.charAt(0) || 'U'
             )}

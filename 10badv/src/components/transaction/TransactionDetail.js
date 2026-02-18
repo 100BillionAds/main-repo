@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import styles from './TransactionDetail.module.css';
 
 export default function TransactionDetail({ transactionId }) {
@@ -259,7 +260,7 @@ export default function TransactionDetail({ transactionId }) {
               <div className={styles.participantHeader}>의뢰인</div>
               <div className={styles.participantInfo}>
                 <div className={styles.participantAvatar}>
-                  <img src={transaction.client.avatar} alt={transaction.client.name} />
+                  <Image src={transaction.client.avatar} alt={transaction.client.name} width={48} height={48} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 </div>
                 <div>
                   <div className={styles.participantName}>{transaction.client.name}</div>
@@ -271,7 +272,7 @@ export default function TransactionDetail({ transactionId }) {
               <div className={styles.participantHeader}>디자이너</div>
               <Link href={`/designers/${transaction.designer.id}`} className={styles.participantInfo}>
                 <div className={styles.participantAvatar}>
-                  <img src={transaction.designer.avatar} alt={transaction.designer.name} />
+                  <Image src={transaction.designer.avatar} alt={transaction.designer.name} width={48} height={48} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 </div>
                 <div>
                   <div className={styles.participantName}>{transaction.designer.name}</div>

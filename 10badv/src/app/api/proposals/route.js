@@ -71,9 +71,17 @@ export async function POST(request) {
 // GET: 제안 목록 조회
 export async function GET(request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const requestId = searchParams.get('requestId');
     const designerId = searchParams.get('designerId');
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = Math.max(1, Math.min(50, parseInt(searchParams.get('limit') || '20', 10)));
+    const offset = (page - 1) * limit;
 
     let query = `
       SELECT p.*, u.username as designer_username, u.name as designer_name
@@ -81,15 +89,36 @@ export async function GET(request) {
       LEFT JOIN users u ON p.designer_id = u.id
       WHERE 1=1
     `;
+    let countQuery = 'SELECT COUNT(*) as total FROM proposals WHERE 1=1';
     const params = [];
+    const countParams = [];
 
-    if (requestId) { query += ' AND p.request_id = ?'; params.push(requestId); }
-    if (designerId) { query += ' AND p.designer_id = ?'; params.push(designerId); }
+    if (requestId) {
+      query += ' AND p.request_id = ?'; params.push(requestId);
+      countQuery += ' AND request_id = ?'; countParams.push(requestId);
+    }
+    if (designerId) {
+      query += ' AND p.designer_id = ?'; params.push(designerId);
+      countQuery += ' AND designer_id = ?'; countParams.push(designerId);
+    }
 
-    query += ' ORDER BY p.created_at DESC';
+    query += ' ORDER BY p.created_at DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
 
-    const [rows] = await pool.execute(query, params);
-    return NextResponse.json({ success: true, proposals: rows });
+    const [[rows], [countResult]] = await Promise.all([
+      pool.execute(query, params),
+      pool.execute(countQuery, countParams)
+    ]);
+
+    return NextResponse.json({
+      success: true,
+      proposals: rows,
+      pagination: {
+        page, limit,
+        total: countResult[0].total,
+        totalPages: Math.ceil(countResult[0].total / limit)
+      }
+    });
   } catch (error) {
     console.error('제안 목록 조회 오류:', error);
     return NextResponse.json({ error: '제안 목록을 불러오는데 실패했습니다.' }, { status: 500 });

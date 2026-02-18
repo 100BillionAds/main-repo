@@ -22,6 +22,18 @@ const nextConfig = {
         protocol: 'https',
         hostname: '*.s3.*.amazonaws.com',
       },
+      {
+        protocol: 'https',
+        hostname: 'i.pravatar.cc',
+      },
+      {
+        protocol: 'https',
+        hostname: 'via.placeholder.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+      },
     ],
   },
 
@@ -54,6 +66,10 @@ const nextConfig = {
           {
             key: 'Referrer-Policy',
             value: 'origin-when-cross-origin',
+          },
+          {
+            key: 'Content-Security-Policy',
+            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.amazonaws.com https://i.pravatar.cc https://via.placeholder.com https://images.unsplash.com; font-src 'self' data:; connect-src 'self' https://*.amazonaws.com wss: ws:; frame-ancestors 'none';",
           },
         ],
       },

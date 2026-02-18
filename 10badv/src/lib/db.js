@@ -249,6 +249,50 @@ export async function initializeDatabase() {
     `);
 
     connection.release();
+
+    // 성능 인덱스 추가 (IF NOT EXISTS로 안전하게)
+    const indexConnection = await pool.getConnection();
+    const indexes = [
+      // users
+      'CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)',
+      'CREATE INDEX IF NOT EXISTS idx_users_role_status ON users(role, status)',
+      'CREATE INDEX IF NOT EXISTS idx_users_rating ON users(rating DESC)',
+      // portfolios
+      'CREATE INDEX IF NOT EXISTS idx_portfolios_designer_status ON portfolios(designer_id, status)',
+      'CREATE INDEX IF NOT EXISTS idx_portfolios_category ON portfolios(category)',
+      'CREATE INDEX IF NOT EXISTS idx_portfolios_status ON portfolios(status)',
+      'CREATE INDEX IF NOT EXISTS idx_portfolios_created ON portfolios(created_at DESC)',
+      // transactions
+      'CREATE INDEX IF NOT EXISTS idx_transactions_buyer ON transactions(buyer_id)',
+      'CREATE INDEX IF NOT EXISTS idx_transactions_designer ON transactions(designer_id)',
+      'CREATE INDEX IF NOT EXISTS idx_transactions_status ON transactions(status)',
+      'CREATE INDEX IF NOT EXISTS idx_transactions_created ON transactions(created_at DESC)',
+      // reviews
+      'CREATE INDEX IF NOT EXISTS idx_reviews_designer ON reviews(designer_id)',
+      // point_transactions
+      'CREATE INDEX IF NOT EXISTS idx_point_tx_user_created ON point_transactions(user_id, created_at DESC)',
+      // chat_rooms
+      'CREATE INDEX IF NOT EXISTS idx_chat_rooms_user1 ON chat_rooms(user1_id)',
+      'CREATE INDEX IF NOT EXISTS idx_chat_rooms_user2 ON chat_rooms(user2_id)',
+      // chat_messages
+      'CREATE INDEX IF NOT EXISTS idx_chat_msg_room_created ON chat_messages(room_id, created_at)',
+      'CREATE INDEX IF NOT EXISTS idx_chat_msg_unread ON chat_messages(room_id, sender_id, is_read)',
+      // requests
+      'CREATE INDEX IF NOT EXISTS idx_requests_status ON requests(status)',
+      'CREATE INDEX IF NOT EXISTS idx_requests_client ON requests(client_id)',
+      // proposals
+      'CREATE INDEX IF NOT EXISTS idx_proposals_request ON proposals(request_id)',
+      'CREATE INDEX IF NOT EXISTS idx_proposals_designer ON proposals(designer_id)',
+      // payments
+      'CREATE INDEX IF NOT EXISTS idx_payments_user ON payments(user_id)',
+      'CREATE INDEX IF NOT EXISTS idx_payments_merchant ON payments(merchant_uid)',
+    ];
+
+    for (const sql of indexes) {
+      try { await indexConnection.query(sql); } catch (e) { /* 이미 존재하면 무시 */ }
+    }
+    indexConnection.release();
+
     return true;
   } catch (error) {
     console.error('데이터베이스 초기화 실패:', error);

@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import styles from './designer.module.css';
 
 export default function DesignerSection({ limit = 6, showViewAll = true }) {
@@ -44,7 +45,7 @@ export default function DesignerSection({ limit = 6, showViewAll = true }) {
             <div className={styles.avatarWrapper}>
               <div className={styles.avatar}>
                 {designer.avatar_url ? (
-                  <img src={designer.avatar_url} alt={designer.name} />
+                  <Image src={designer.avatar_url} alt={designer.name} width={80} height={80} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
                   <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
                     {designer.name?.charAt(0) || 'D'}

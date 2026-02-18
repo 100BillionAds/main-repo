@@ -12,7 +12,7 @@ const port = parseInt(process.env.PORT || '3000', 10);
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
-// MySQL 풀 설정 (환경변수 사용)
+// MySQL 풀 설정 (db.js와 동일한 설정 — server.js는 CommonJS이므로 별도 풀 필요)
 const dbPool = mysql.createPool({
   host: process.env.DATABASE_HOST || 'localhost',
   user: process.env.DATABASE_USER || 'root',
@@ -21,6 +21,8 @@ const dbPool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 0
 });
 
 app.prepare().then(() => {
@@ -73,8 +75,9 @@ app.prepare().then(() => {
     socket.on('send_message', async (data) => {
       const { roomId, senderId, message, messageType = 'text', fileUrl = null, fileName = null, fileSize = null } = data;
       
+      let connection;
       try {
-        const connection = await dbPool.getConnection();
+        connection = await dbPool.getConnection();
         
         // 채팅방 정보 조회 (거래 ID 포함)
         const [rooms] = await connection.execute(
@@ -90,7 +93,7 @@ app.prepare().then(() => {
 
         const messageId = result.insertId;
 
-        // 채팅방 마지막 메시지 업데이트
+        // 채탱방 마지막 메시지 업데이트
         const displayMessage = messageType === 'image' ? '📷 이미지' : (messageType === 'file' ? `📎 ${fileName || message}` : message);
         await connection.execute(
           'UPDATE chat_rooms SET last_message = ?, last_message_at = NOW() WHERE id = ?',
@@ -114,8 +117,6 @@ app.prepare().then(() => {
           WHERE cm.id = ?
         `, [messageId]);
 
-        connection.release();
-
         // 같은 방의 모든 사용자에게 메시지 전송
         io.to(`room:${roomId}`).emit('new_message', messages[0]);
         
@@ -123,6 +124,8 @@ app.prepare().then(() => {
       } catch (error) {
         console.error('메시지 저장 실패:', error);
         socket.emit('message_error', { error: '메시지 전송에 실패했습니다.' });
+      } finally {
+        if (connection) connection.release();
       }
     });
 
@@ -143,14 +146,10 @@ app.prepare().then(() => {
       const { roomId, userId } = data;
       
       try {
-        const connection = await dbPool.getConnection();
-        
-        await connection.execute(
+        await dbPool.execute(
           'UPDATE chat_messages SET is_read = 1 WHERE room_id = ? AND sender_id != ? AND is_read = 0',
           [roomId, userId]
         );
-        
-        connection.release();
         
         // 상대방에게 읽음 알림
         socket.to(`room:${roomId}`).emit('messages_read', { userId });

@@ -89,4 +89,4 @@ coverage/
 # ----- Generated -----
 **/generated/prisma
 
-.env/*
+.env/example

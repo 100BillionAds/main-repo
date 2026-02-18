@@ -14,6 +14,9 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
     const status = searchParams.get('status');
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = Math.max(1, Math.min(50, parseInt(searchParams.get('limit') || '20', 10)));
+    const offset = (page - 1) * limit;
 
     let query = `
       SELECT t.*,
@@ -26,28 +29,48 @@ export async function GET(request) {
       LEFT JOIN users designer ON t.designer_id = designer.id
       WHERE 1=1
     `;
+    let countQuery = 'SELECT COUNT(*) as total FROM transactions WHERE 1=1';
     const params = [];
+    const countParams = [];
 
     if (session.user.role !== 'admin') {
       query += ' AND (t.buyer_id = ? OR t.designer_id = ?)';
+      countQuery += ' AND (buyer_id = ? OR designer_id = ?)';
       params.push(session.user.id, session.user.id);
+      countParams.push(session.user.id, session.user.id);
     }
 
     if (userId) {
       query += ' AND (t.buyer_id = ? OR t.designer_id = ?)';
+      countQuery += ' AND (buyer_id = ? OR designer_id = ?)';
       params.push(userId, userId);
+      countParams.push(userId, userId);
     }
 
     if (status) {
       query += ' AND t.status = ?';
+      countQuery += ' AND status = ?';
       params.push(status);
+      countParams.push(status);
     }
 
-    query += ' ORDER BY t.created_at DESC';
+    query += ' ORDER BY t.created_at DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
 
-    const [transactions] = await pool.execute(query, params);
+    const [[transactions], [countResult]] = await Promise.all([
+      pool.execute(query, params),
+      pool.execute(countQuery, countParams)
+    ]);
 
-    return NextResponse.json({ success: true, transactions });
+    return NextResponse.json({
+      success: true,
+      transactions,
+      pagination: {
+        page, limit,
+        total: countResult[0].total,
+        totalPages: Math.ceil(countResult[0].total / limit)
+      }
+    });
   } catch (error) {
     console.error('거래 조회 실패:', error);
     return NextResponse.json({ success: false, error: '거래 조회에 실패했습니다.' }, { status: 500 });

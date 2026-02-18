@@ -3,6 +3,7 @@
 import { use, useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 export default function MyPortfolioDetailPage({ params }) {
   const { id } = use(params);
@@ -108,7 +109,7 @@ export default function MyPortfolioDetailPage({ params }) {
           </div>
 
           {portfolio.thumbnail_url && (
-            <img src={portfolio.thumbnail_url} alt={portfolio.title} style={{ width: '100%', borderRadius: '0.5rem', marginBottom: '1rem' }} />
+            <Image src={portfolio.thumbnail_url} alt={portfolio.title} width={800} height={600} sizes="100vw" style={{ width: '100%', height: 'auto', borderRadius: '0.5rem', marginBottom: '1rem' }} />
           )}
 
           <div style={{ display: 'grid', gap: '1rem', marginBottom: '2rem' }}>
@@ -139,7 +140,7 @@ export default function MyPortfolioDetailPage({ params }) {
               <strong>추가 이미지:</strong>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
                 {portfolio.images.map((img, idx) => (
-                  <img key={idx} src={img.image_url} alt={`이미지 ${idx + 1}`} style={{ width: '100%', borderRadius: '0.5rem' }} />
+                  <Image key={idx} src={img.image_url} alt={`이미지 ${idx + 1}`} width={400} height={300} sizes="(max-width: 768px) 100vw, 200px" style={{ width: '100%', height: 'auto', borderRadius: '0.5rem' }} />
                 ))}
               </div>
             </div>

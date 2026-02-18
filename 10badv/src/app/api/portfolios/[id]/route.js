@@ -20,18 +20,36 @@ export async function GET(request, { params }) {
       return NextResponse.json({ success: false, error: '포트폴리오를 찾을 수 없습니다.' }, { status: 404 });
     }
 
-    // 조회수 증가
-    await pool.execute('UPDATE portfolios SET views = views + 1 WHERE id = ?', [id]);
+    // 조회수 증가 (간단한 중복 방지: 같은 IP 1분 내 중복 카운트 방지)
+    const forwarded = request.headers.get('x-forwarded-for');
+    const ip = forwarded ? forwarded.split(',')[0].trim() : 'unknown';
+    const viewKey = `view:${id}:${ip}`;
+    if (!global._viewCache) global._viewCache = new Map();
+    const now = Date.now();
+    if (!global._viewCache.has(viewKey) || now - global._viewCache.get(viewKey) > 60000) {
+      global._viewCache.set(viewKey, now);
+      await pool.execute('UPDATE portfolios SET views = views + 1 WHERE id = ?', [id]);
+    }
+    // 캐시 정리 (5분마다)
+    if (!global._viewCacheCleanup || now - global._viewCacheCleanup > 300000) {
+      global._viewCacheCleanup = now;
+      for (const [key, time] of global._viewCache) {
+        if (now - time > 300000) global._viewCache.delete(key);
+      }
+    }
 
     const [images] = await pool.execute(
       'SELECT * FROM portfolio_images WHERE portfolio_id = ? ORDER BY display_order',
       [id]
     );
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       portfolio: { ...portfolios[0], images }
     });
+    // 공개 API 캐싱 (10초 stale-while-revalidate)
+    response.headers.set('Cache-Control', 'public, s-maxage=10, stale-while-revalidate=30');
+    return response;
   } catch (error) {
     console.error('포트폴리오 조회 실패:', error);
     return NextResponse.json({ success: false, error: '포트폴리오 조회에 실패했습니다.' }, { status: 500 });
@@ -86,10 +104,12 @@ export async function PATCH(request, { params }) {
 
     if (images !== undefined && Array.isArray(images)) {
       await pool.execute('DELETE FROM portfolio_images WHERE portfolio_id = ?', [id]);
-      for (let i = 0; i < images.length; i++) {
+      if (images.length > 0) {
+        const placeholders = images.map(() => '(?, ?, ?)').join(', ');
+        const values = images.flatMap((url, i) => [id, url, i]);
         await pool.execute(
-          'INSERT INTO portfolio_images (portfolio_id, image_url, display_order) VALUES (?, ?, ?)',
-          [id, images[i], i]
+          `INSERT INTO portfolio_images (portfolio_id, image_url, display_order) VALUES ${placeholders}`,
+          values
         );
       }
     }

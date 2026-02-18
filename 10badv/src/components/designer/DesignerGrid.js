@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import styles from './DesignerGrid.module.css';
 
 export default function DesignerGrid({ showAll = false, limit = 6 }) {
@@ -89,7 +90,7 @@ export default function DesignerGrid({ showAll = false, limit = 6 }) {
               <div className={styles.avatarWrapper}>
                 <div className={styles.avatar}>
                   {designer.avatar_url ? (
-                    <img src={designer.avatar_url} alt={designer.name} />
+                    <Image src={designer.avatar_url} alt={designer.name} width={80} height={80} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
                     <div className="w-full h-full bg-blue-100 flex items-center justify-center text-2xl font-bold text-blue-600">
                       {designer.name?.charAt(0) || '?'}

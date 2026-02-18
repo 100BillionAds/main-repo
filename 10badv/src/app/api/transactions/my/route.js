@@ -1,14 +1,7 @@
 import { NextResponse } from 'next/server';
-import mysql from 'mysql2/promise';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-
-const dbConfig = {
-  host: 'localhost',
-  user: 'root',
-  password: 'merk',
-  database: '10badv'
-};
+import pool from '@/lib/db';
 
 // GET: 내 거래 내역 조회 (구매자 + 디자이너)
 export async function GET(request) {
@@ -19,10 +12,13 @@ export async function GET(request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status'); // all, pending, in_progress, completed, cancelled
-    
-    const connection = await mysql.createConnection(dbConfig);
-    
+    const status = searchParams.get('status');
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = Math.max(1, Math.min(50, parseInt(searchParams.get('limit') || '20', 10)));
+    const offset = (page - 1) * limit;
+
+    const userId = parseInt(session.user.id);
+
     let query = `
       SELECT 
         t.*,
@@ -44,19 +40,34 @@ export async function GET(request) {
       LEFT JOIN users buyer ON t.buyer_id = buyer.id
       WHERE (t.buyer_id = ? OR t.designer_id = ?)
     `;
-    let params = [session.user.id, session.user.id, session.user.id, session.user.id];
-    
+    let params = [userId, userId, userId, userId];
+    let countQuery = 'SELECT COUNT(*) as total FROM transactions WHERE (buyer_id = ? OR designer_id = ?)';
+    let countParams = [userId, userId];
+
     if (status && status !== 'all') {
       query += ' AND t.status = ?';
       params.push(status);
+      countQuery += ' AND status = ?';
+      countParams.push(status);
     }
-    
-    query += ' ORDER BY t.created_at DESC';
-    
-    const [rows] = await connection.execute(query, params);
-    await connection.end();
-    
-    return NextResponse.json(rows);
+
+    query += ' ORDER BY t.created_at DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+
+    const [[rows], [countResult]] = await Promise.all([
+      pool.execute(query, params),
+      pool.execute(countQuery, countParams)
+    ]);
+
+    return NextResponse.json({
+      success: true,
+      transactions: rows,
+      pagination: {
+        page, limit,
+        total: countResult[0].total,
+        totalPages: Math.ceil(countResult[0].total / limit)
+      }
+    });
   } catch (error) {
     console.error('거래 내역 조회 오류:', error);
     return NextResponse.json({ error: '거래 내역을 불러오는데 실패했습니다.' }, { status: 500 });

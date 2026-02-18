@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import styles from './PortfolioApproval.module.css';
 
 export default function PortfolioApproval() {
@@ -188,7 +189,7 @@ export default function PortfolioApproval() {
             <div key={portfolio.id} className={styles.portfolioCard}>
               <div className={styles.cardImage}>
                 {portfolio.thumbnail_url ? (
-                  <img src={portfolio.thumbnail_url} alt={portfolio.title} />
+                  <Image src={portfolio.thumbnail_url} alt={portfolio.title} fill sizes="(max-width: 768px) 100vw, 33vw" style={{ objectFit: 'cover' }} />
                 ) : (
                   <div className={styles.cardImagePlaceholder}>🎨</div>
                 )}

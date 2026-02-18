@@ -23,13 +23,28 @@ export async function GET(request, { params }) {
       return NextResponse.json({ success: false, error: '접근 권한이 없습니다.' }, { status: 403 });
     }
 
-    const [messages] = await pool.execute(`
+    const { searchParams } = new URL(request.url);
+    const limit = Math.max(1, Math.min(200, parseInt(searchParams.get('limit') || '100', 10)));
+    const before = searchParams.get('before'); // cursor: 이전 메시지 로드용
+
+    let msgQuery = `
       SELECT cm.id, cm.sender_id, cm.message, cm.message_type, cm.file_url, cm.file_name, cm.file_size, cm.created_at, u.username as sender_name
       FROM chat_messages cm
       LEFT JOIN users u ON cm.sender_id = u.id
       WHERE cm.room_id = ?
-      ORDER BY cm.created_at ASC
-    `, [roomId]);
+    `;
+    const msgParams = [roomId];
+
+    if (before) {
+      msgQuery += ' AND cm.id < ?';
+      msgParams.push(parseInt(before));
+    }
+
+    msgQuery += ' ORDER BY cm.created_at DESC LIMIT ?';
+    msgParams.push(limit);
+
+    const [rawMessages] = await pool.execute(msgQuery, msgParams);
+    const messages = rawMessages.reverse(); // 시간순 정렬
 
     await pool.execute(
       'UPDATE chat_messages SET is_read = 1 WHERE room_id = ? AND sender_id != ? AND is_read = 0',

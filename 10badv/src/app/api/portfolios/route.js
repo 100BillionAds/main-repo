@@ -33,14 +33,34 @@ export async function GET(request) {
     query += ' ORDER BY p.created_at DESC LIMIT ? OFFSET ?';
     params.push(limit, offset);
 
-    const [portfolios] = await pool.execute(query, params);
+    // 데이터 + 총 개수 병렬 조회
+    let countQuery = 'SELECT COUNT(*) as total FROM portfolios p';
+    if (conditions.length > 0) {
+      countQuery += ' WHERE ' + conditions.join(' AND ');
+    }
+    const countParams = params.slice(0, params.length - 2); // limit, offset 제외
+
+    const [[portfolios], [countResult]] = await Promise.all([
+      pool.execute(query, params),
+      pool.execute(countQuery, countParams)
+    ]);
 
     const formattedPortfolios = portfolios.map(p => ({
       ...p,
       image_url: p.thumbnail_url
     }));
 
-    return NextResponse.json({ success: true, portfolios: formattedPortfolios });
+    const response = NextResponse.json({
+      success: true,
+      portfolios: formattedPortfolios,
+      pagination: {
+        page, limit,
+        total: countResult[0].total,
+        totalPages: Math.ceil(countResult[0].total / limit)
+      }
+    });
+    response.headers.set('Cache-Control', 'public, s-maxage=10, stale-while-revalidate=30');
+    return response;
   } catch (error) {
     console.error('포트폴리오 조회 실패:', error);
     return NextResponse.json({ success: false, error: '포트폴리오 조회에 실패했습니다.' }, { status: 500 });
@@ -72,12 +92,12 @@ export async function POST(request) {
     const portfolioId = result.insertId;
 
     if (images && images.length > 0) {
-      for (let i = 0; i < images.length; i++) {
-        await pool.execute(
-          'INSERT INTO portfolio_images (portfolio_id, image_url, display_order) VALUES (?, ?, ?)',
-          [portfolioId, images[i], i]
-        );
-      }
+      const placeholders = images.map((_, i) => '(?, ?, ?)').join(', ');
+      const values = images.flatMap((url, i) => [portfolioId, url, i]);
+      await pool.execute(
+        `INSERT INTO portfolio_images (portfolio_id, image_url, display_order) VALUES ${placeholders}`,
+        values
+      );
     }
 
     return NextResponse.json({

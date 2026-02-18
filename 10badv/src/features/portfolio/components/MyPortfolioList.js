@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import styles from './MyPortfolioList.module.css';
 
 export default function MyPortfolioList() {
@@ -73,7 +74,7 @@ export default function MyPortfolioList() {
             <div key={portfolio.id} className={styles.card}>
               <div className={styles.cardImage}>
                 {portfolio.thumbnail_url ? (
-                  <img src={portfolio.thumbnail_url} alt={portfolio.title} />
+                  <Image src={portfolio.thumbnail_url} alt={portfolio.title} fill sizes="(max-width: 768px) 100vw, 33vw" style={{ objectFit: 'cover' }} />
                 ) : (
                   <div className={styles.cardImagePlaceholder}>🎨</div>
                 )}

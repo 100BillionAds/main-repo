@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import styles from './featured.module.css';
 
 export default function FeaturedSection({ limit = 6, showViewAll = true }) {
@@ -62,11 +63,12 @@ export default function FeaturedSection({ limit = 6, showViewAll = true }) {
           >
             {/* 이미지 */}
             <div className={styles.imageWrapper}>
-              <img
+              <Image
                 src={portfolio.image_url || 'https://via.placeholder.com/800x600?text=Portfolio'}
                 alt={portfolio.title}
                 className={styles.image}
-                loading="lazy"
+                fill
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               />
             </div>
 

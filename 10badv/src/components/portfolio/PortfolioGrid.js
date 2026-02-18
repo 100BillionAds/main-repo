@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import styles from './PortfolioGrid.module.css';
 
 const samplePortfolios = Array.from({ length: 50 }, (_, i) => ({
@@ -57,7 +58,7 @@ export default function PortfolioGrid({ showAll = false, limit = 6 }) {
               <h3 className={styles.title}>{portfolio.title}</h3>
               <div className={styles.designer}>
                 <div className={styles.designerAvatar}>
-                  <img src={portfolio.designerAvatar} alt={portfolio.designer} />
+                  <Image src={portfolio.designerAvatar} alt={portfolio.designer} width={32} height={32} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
                 </div>
                 <span className={styles.designerName}>{portfolio.designer}</span>
               </div>

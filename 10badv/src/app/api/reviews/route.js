@@ -80,6 +80,9 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const designer_id = searchParams.get('designer_id');
     const transaction_id = searchParams.get('transaction_id');
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = Math.max(1, Math.min(50, parseInt(searchParams.get('limit') || '20', 10)));
+    const offset = (page - 1) * limit;
 
     let query = `
       SELECT r.*, u.name as reviewer_name, u.username as reviewer_username
@@ -87,16 +90,36 @@ export async function GET(request) {
       LEFT JOIN users u ON r.reviewer_id = u.id
       WHERE 1=1
     `;
+    let countQuery = 'SELECT COUNT(*) as total FROM reviews WHERE 1=1';
     const params = [];
+    const countParams = [];
 
-    if (designer_id) { query += ' AND r.designer_id = ?'; params.push(designer_id); }
-    if (transaction_id) { query += ' AND r.transaction_id = ?'; params.push(transaction_id); }
+    if (designer_id) {
+      query += ' AND r.designer_id = ?'; params.push(designer_id);
+      countQuery += ' AND designer_id = ?'; countParams.push(designer_id);
+    }
+    if (transaction_id) {
+      query += ' AND r.transaction_id = ?'; params.push(transaction_id);
+      countQuery += ' AND transaction_id = ?'; countParams.push(transaction_id);
+    }
 
-    query += ' ORDER BY r.created_at DESC';
+    query += ' ORDER BY r.created_at DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
 
-    const [reviews] = await pool.execute(query, params);
+    const [[reviews], [countResult]] = await Promise.all([
+      pool.execute(query, params),
+      pool.execute(countQuery, countParams)
+    ]);
 
-    return NextResponse.json({ success: true, reviews });
+    return NextResponse.json({
+      success: true,
+      reviews,
+      pagination: {
+        page, limit,
+        total: countResult[0].total,
+        totalPages: Math.ceil(countResult[0].total / limit)
+      }
+    });
   } catch (error) {
     console.error('리뷰 조회 실패:', error);
     return NextResponse.json({ success: false, error: '리뷰 조회에 실패했습니다.' }, { status: 500 });
