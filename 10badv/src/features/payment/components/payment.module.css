@@ -249,6 +249,40 @@
   .methodButtons {
     grid-template-columns: 1fr;
   }
+
+  .formRow {
+    grid-template-columns: 1fr;
+  }
+
+  .title {
+    font-size: 1.5rem;
+  }
+
+  .formSection {
+    padding: 1.5rem;
+    border-radius: 1rem;
+  }
+
+  .infoSection {
+    padding: 1.5rem;
+    position: static;
+  }
+
+  .sectionTitle {
+    font-size: 1.25rem;
+  }
+
+  .successTitle {
+    font-size: 1.5rem;
+  }
+
+  .successIcon {
+    font-size: 4rem;
+  }
+
+  .container {
+    padding: 1rem 0.75rem;
+  }
 }
 
 .methodButton {

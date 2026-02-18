@@ -275,3 +275,72 @@
   background: #ef4444;
   color: white;
 }
+
+/* 반응형 */
+@media (max-width: 640px) {
+  .container {
+    padding: 1rem 0.75rem;
+  }
+
+  .title {
+    font-size: 1.5rem;
+  }
+
+  .subtitle {
+    font-size: 0.875rem;
+  }
+
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .createButton {
+    text-align: center;
+    width: 100%;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  .cardImage {
+    height: 180px;
+  }
+
+  .cardContent {
+    padding: 1.25rem;
+  }
+
+  .cardActions {
+    flex-direction: column;
+  }
+
+  .emptyState {
+    padding: 2.5rem 1.5rem;
+    margin: 2rem auto;
+  }
+
+  .emptyIcon {
+    font-size: 3.5rem;
+  }
+
+  .emptyTitle {
+    font-size: 1.25rem;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .title {
+    font-size: 1.75rem;
+  }
+
+  .cardImage {
+    height: 200px;
+  }
+}

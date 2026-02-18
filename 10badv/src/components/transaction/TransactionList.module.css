@@ -54,6 +54,12 @@
   }
 }
 
+@media (min-width: 1024px) {
+  .list {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 .card {
   background: white;
   border-radius: 1.5rem;

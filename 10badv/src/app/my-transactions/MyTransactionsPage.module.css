@@ -239,7 +239,15 @@
 
 @media (max-width: 768px) {
   .main {
-    padding: 20px;
+    padding: 16px;
+  }
+
+  .title {
+    font-size: 1.5rem;
+  }
+
+  .transactionCard {
+    padding: 16px;
   }
 
   .cardBody {
@@ -254,5 +262,20 @@
 
   .cardFooter {
     flex-direction: column;
+  }
+
+  .header {
+    flex-direction: column;
+    gap: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .main {
+    padding: 12px;
+  }
+
+  .amount {
+    font-size: 1.25rem;
   }
 }

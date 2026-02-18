@@ -20,6 +20,13 @@ export const metadata = {
   keywords: ['간판', '디자인', '포트폴리오', '매칭', '백억광고'],
 };
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: 'cover',
+};
+
 export default function RootLayout({ children }) {
   return (
     <html lang="ko">

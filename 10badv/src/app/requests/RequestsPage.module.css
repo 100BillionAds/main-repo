@@ -227,12 +227,16 @@
 
 @media (max-width: 768px) {
   .main {
-    padding: 20px;
+    padding: 16px;
   }
 
   .header {
     flex-direction: column;
-    gap: 20px;
+    gap: 16px;
+  }
+
+  .title {
+    font-size: 1.5rem;
   }
 
   .createButton {
@@ -241,5 +245,29 @@
 
   .grid {
     grid-template-columns: 1fr;
+  }
+
+  .card {
+    padding: 16px;
+  }
+
+  .cardTitle {
+    font-size: 1.1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .main {
+    padding: 12px;
+  }
+
+  .filterContainer {
+    gap: 8px;
+  }
+
+  .filterButton,
+  .filterButtonActive {
+    padding: 8px 14px;
+    font-size: 0.85rem;
   }
 }

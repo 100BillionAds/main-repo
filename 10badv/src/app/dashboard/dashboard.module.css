@@ -522,6 +522,12 @@
 
 @media (min-width: 768px) {
   .portfolioGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .portfolioGrid {
     grid-template-columns: repeat(3, 1fr);
   }
 }

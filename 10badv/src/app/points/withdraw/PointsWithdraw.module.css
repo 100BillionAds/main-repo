@@ -186,3 +186,57 @@
 .notice p {
   margin: 0.25rem 0;
 }
+
+/* 반응형 */
+@media (max-width: 640px) {
+  .container {
+    padding: 1rem 0.75rem;
+  }
+
+  .title {
+    font-size: 1.5rem;
+  }
+
+  .balanceAmount {
+    font-size: 1.75rem;
+  }
+
+  .balanceCard {
+    padding: 1.5rem;
+  }
+
+  .withdrawSection {
+    padding: 1.25rem;
+  }
+
+  .sectionTitle {
+    font-size: 1.1rem;
+  }
+
+  .feeRow {
+    font-size: 0.825rem;
+  }
+
+  .totalAmount {
+    font-size: 1.1rem;
+  }
+
+  .accountSection {
+    padding-top: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .feeInfo {
+    padding: 1rem;
+  }
+
+  .balanceAmount {
+    font-size: 1.5rem;
+  }
+
+  .withdrawButton {
+    padding: 0.875rem;
+    font-size: 0.9rem;
+  }
+}

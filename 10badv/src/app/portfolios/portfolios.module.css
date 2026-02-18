@@ -66,14 +66,29 @@
 
 @media (max-width: 768px) {
   .title {
-    font-size: 2rem;
+    font-size: 1.75rem;
   }
   
   .description {
-    font-size: 1rem;
+    font-size: 0.95rem;
   }
   
   .container {
-    padding: 2rem 1rem;
+    padding: 1.5rem 0.75rem;
+  }
+
+  .filters {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .title {
+    font-size: 1.5rem;
+  }
+
+  .filterButton {
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
   }
 }

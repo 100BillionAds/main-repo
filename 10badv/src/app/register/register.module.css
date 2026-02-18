@@ -403,3 +403,72 @@
   margin: 0;
 }
 
+/* 모바일 반응형 */
+@media (max-width: 640px) {
+  .container {
+    padding: 1rem 0.75rem;
+  }
+
+  .brandTitle {
+    font-size: 1.75rem;
+  }
+
+  .brandDescription {
+    font-size: 0.95rem;
+  }
+
+  .formTitle {
+    font-size: 1.5rem;
+  }
+
+  .formSection {
+    padding: 2rem 1.25rem;
+  }
+
+  .brandSection {
+    padding: 2rem 1.25rem;
+  }
+
+  .successCard {
+    padding: 2.5rem 1.5rem;
+  }
+
+  .successTitle {
+    font-size: 1.5rem;
+  }
+
+  .logo {
+    margin-bottom: 2rem;
+  }
+
+  .logoIcon {
+    font-size: 2rem;
+  }
+
+  .logoText {
+    font-size: 1.5rem;
+  }
+
+  .avatarPreview {
+    width: 100px;
+    height: 100px;
+  }
+}
+
+@media (max-width: 480px) {
+  .brandTitle {
+    font-size: 1.5rem;
+  }
+
+  .formTitle {
+    font-size: 1.25rem;
+  }
+
+  .roleButtons {
+    grid-template-columns: 1fr;
+  }
+
+  .roleIcon {
+    font-size: 1.5rem;
+  }
+}

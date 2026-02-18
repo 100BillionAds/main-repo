@@ -383,3 +383,66 @@
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   border-radius: 0.5rem;
 }
+
+/* 모바일 반응형 */
+@media (max-width: 640px) {
+  .container {
+    padding: 1rem 0.75rem;
+  }
+
+  .thumbnails {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+  }
+
+  .title {
+    font-size: 1.35rem;
+  }
+
+  .price {
+    font-size: 1.5rem;
+  }
+
+  .card {
+    padding: 1.25rem;
+  }
+
+  .description {
+    padding: 1.25rem;
+  }
+
+  .sectionTitle {
+    font-size: 1.25rem;
+  }
+
+  .actions {
+    grid-template-columns: 1fr;
+  }
+
+  .designerStats {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+  }
+
+  .stat {
+    padding: 0.5rem;
+  }
+
+  .statLabel {
+    font-size: 0.675rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .thumbnails {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .title {
+    font-size: 1.2rem;
+  }
+
+  .price {
+    font-size: 1.25rem;
+  }
+}

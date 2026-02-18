@@ -252,6 +252,27 @@
 }
 
 @media (max-width: 640px) {
+  .container {
+    padding: 1rem 0.75rem;
+  }
+
+  .title {
+    font-size: 1.5rem;
+  }
+
+  .balanceAmount {
+    font-size: 1.75rem;
+  }
+
+  .balanceCard {
+    padding: 1.5rem;
+  }
+
+  .chargeSection,
+  .historySection {
+    padding: 1.25rem;
+  }
+
   .quickAmounts {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -264,5 +285,20 @@
 
   .transactionAmount {
     align-items: flex-start;
+  }
+
+  .sectionTitle {
+    font-size: 1.1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .balanceAmount {
+    font-size: 1.5rem;
+  }
+
+  .quickAmountButton {
+    padding: 0.75rem;
+    font-size: 0.825rem;
   }
 }

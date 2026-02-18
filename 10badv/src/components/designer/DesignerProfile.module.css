@@ -437,3 +437,84 @@
     transform: translateY(0);
   }
 }
+
+/* 모바일 반응형 추가 */
+@media (max-width: 640px) {
+  .container {
+    padding: 1rem 0.75rem;
+  }
+
+  .name {
+    font-size: 1.75rem;
+  }
+
+  .avatar {
+    width: 120px;
+    height: 120px;
+  }
+
+  .verifiedBadge {
+    width: 36px;
+    height: 36px;
+    font-size: 1.25rem;
+    border-width: 3px;
+  }
+
+  .profileCard {
+    padding: 1.5rem;
+  }
+
+  .stats {
+    gap: 0.5rem;
+  }
+
+  .statValue {
+    font-size: 1.25rem;
+  }
+
+  .actions {
+    grid-template-columns: 1fr;
+  }
+
+  .chatButton,
+  .followButton {
+    padding: 0.875rem 1.5rem;
+  }
+
+  .tabs {
+    flex-wrap: wrap;
+  }
+
+  .tab {
+    font-size: 0.875rem;
+    padding: 0.75rem;
+  }
+
+  .specialty {
+    font-size: 0.875rem;
+    padding: 0.5rem 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .name {
+    font-size: 1.5rem;
+  }
+
+  .avatar {
+    width: 100px;
+    height: 100px;
+  }
+
+  .statItem {
+    padding: 0.75rem 0.5rem;
+  }
+
+  .statValue {
+    font-size: 1.1rem;
+  }
+
+  .statLabel {
+    font-size: 0.75rem;
+  }
+}

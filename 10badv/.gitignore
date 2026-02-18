@@ -21,6 +21,9 @@ next-env.d.ts
 # ----- Environment (보안!) -----
 .env
 .env.local
+.env.production
+.env.development
+.env.test
 .env*.local
 !.env.example
 

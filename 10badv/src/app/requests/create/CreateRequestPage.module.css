@@ -192,15 +192,29 @@
 
 @media (max-width: 768px) {
   .main {
-    padding: 20px;
+    padding: 16px;
+  }
+
+  .title {
+    font-size: 1.5rem;
+  }
+
+  .header {
+    margin-bottom: 24px;
   }
 
   .form {
-    padding: 24px;
+    padding: 20px;
+    border-radius: 16px;
+  }
+
+  .formGroup {
+    margin-bottom: 24px;
   }
 
   .buttonGroup {
     flex-direction: column;
+    margin-top: 24px;
   }
 
   .tagInputContainer {
@@ -209,5 +223,15 @@
 
   .addTagButton {
     width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .main {
+    padding: 12px;
+  }
+
+  .form {
+    padding: 16px;
   }
 }

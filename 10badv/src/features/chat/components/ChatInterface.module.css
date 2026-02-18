@@ -37,7 +37,15 @@
   overflow: hidden;
   display: grid;
   grid-template-columns: 1fr;
-  height: 100vh;
+  height: 100dvh;
+  height: 100vh; /* fallback */
+  position: relative;
+}
+
+@supports (height: 100dvh) {
+  .chatWrapper {
+    height: 100dvh;
+  }
 }
 
 @media (min-width: 1024px) {
@@ -89,7 +97,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   background: white;
-  max-height: calc(100vh - 80px);
+  max-height: calc(100dvh - 80px);
 }
 
 .emptyState {
@@ -242,7 +250,7 @@
   flex-direction: column;
   gap: 0.5rem;
   background: #b2c7d9;
-  max-height: calc(100vh - 180px);
+  max-height: calc(100dvh - 180px);
 }
 
 .emptyMessages {
@@ -508,11 +516,78 @@
 /* 반응형 */
 @media (max-width: 1023px) {
   .sidebar {
-    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 85%;
+    max-width: 380px;
+    height: 100dvh;
+    height: 100vh;
+    z-index: 100;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
   }
-  
+
+  .sidebarOpen {
+    transform: translateX(0);
+  }
+
+  .sidebarOverlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 99;
+    backdrop-filter: blur(2px);
+  }
+
+  .sidebarOverlayVisible {
+    display: block;
+  }
+
   .chatWrapper {
     grid-template-columns: 1fr;
+  }
+
+  .messagesArea {
+    max-height: calc(100dvh - 160px);
+    padding: 1rem 0.75rem;
+  }
+
+  .chatHeader {
+    padding: 0.75rem 1rem;
+  }
+
+  .messageContent {
+    max-width: 85%;
+  }
+}
+
+/* 모바일 토글 버튼 */
+.mobileMenuButton {
+  display: none;
+  padding: 0.5rem;
+  background: transparent;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.mobileMenuButton:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+@media (max-width: 1023px) {
+  .mobileMenuButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 }
 

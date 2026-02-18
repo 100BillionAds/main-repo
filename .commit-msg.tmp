@@ -1,0 +1,12 @@
+♻️ 전체 프론트엔드 반응형 디자인 구현
+
+- 반응형 미지원 6개 파일 완전 개선 (PointsWithdraw, PortfolioCreateForm, MyPortfolioList, PortfolioBrowser, PortfolioApproval, TransactionList)
+- ChatInterface 모바일 사이드바 슬라이드 드로어 구현 + 100dvh 적용
+- 로그인/회원가입 모바일 반응형 추가
+- MyPage, MyTransactions, Requests, PointsCharge 등 부분 반응형 강화
+- PortfolioDetail, DesignerProfile, Profile 480px 소형 모바일 지원
+- dashboard portfolioGrid 중간 2열 브레이크포인트 추가
+- home hero 높이 min(600px, 85vh) 적용
+- globals.css 전역 transition 제거 (성능 개선)
+- layout.js viewport 메타 설정 추가
+- 표준 브레이크포인트: 480px / 640px / 768px / 1024px

@@ -19,6 +19,7 @@ export default function ChatInterface() {
   const [isTyping, setIsTyping] = useState(false);
   const [typingUser, setTypingUser] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -351,8 +352,13 @@ export default function ChatInterface() {
   return (
     <div className={styles.container}>
       <div className={styles.chatWrapper}>
+        {/* 모바일 사이드바 오버레이 */}
+        <div
+          className={`${styles.sidebarOverlay} ${sidebarOpen ? styles.sidebarOverlayVisible : ''}`}
+          onClick={() => setSidebarOpen(false)}
+        />
         {/* 채팅방 목록 */}
-        <div className={styles.sidebar}>
+        <div className={`${styles.sidebar} ${sidebarOpen ? styles.sidebarOpen : ''}`}>
           <div className={styles.sidebarHeader}>
             <h2 className={styles.sidebarTitle}>💬 채팅</h2>
             <Link href="/dashboard" className={styles.backButton}>
@@ -371,7 +377,7 @@ export default function ChatInterface() {
                 <div
                   key={room.id}
                   className={`${styles.roomItem} ${selectedRoom?.id === room.id ? styles.roomItemActive : ''}`}
-                  onClick={() => setSelectedRoom(room)}
+                  onClick={() => { setSelectedRoom(room); setSidebarOpen(false); }}
                 >
                   <div className={styles.roomAvatar}>
                     {room.other_user_avatar ? (
@@ -417,6 +423,13 @@ export default function ChatInterface() {
             <>
               {/* 채팅방 헤더 */}
               <div className={styles.chatHeader}>
+                <button
+                  className={styles.mobileMenuButton}
+                  onClick={() => setSidebarOpen(true)}
+                  aria-label="채팅방 목록"
+                >
+                  ☰
+                </button>
                 <div className={styles.chatHeaderInfo}>
                   <div className={styles.chatRoomNameWrapper}>
                     <h3 className={styles.chatRoomName}>{selectedRoom.other_user_name}</h3>
@@ -608,6 +621,13 @@ export default function ChatInterface() {
                 <p className={styles.emptyChatDescription}>
                   왼쪽 목록에서 대화를 시작할 채팅방을 선택하세요
                 </p>
+                <button
+                  className={styles.mobileMenuButton}
+                  onClick={() => setSidebarOpen(true)}
+                  style={{ margin: '1rem auto 0', fontSize: '1rem', padding: '0.75rem 1.5rem', background: '#fae100', borderRadius: '1rem', fontWeight: 700 }}
+                >
+                  ☰ 채팅방 목록 보기
+                </button>
               </div>
             </div>
           )}

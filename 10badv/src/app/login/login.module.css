@@ -372,3 +372,64 @@
 .registerLink:hover {
   opacity: 0.8;
 }
+
+/* 모바일 반응형 */
+@media (max-width: 640px) {
+  .container {
+    padding: 1rem 0.75rem;
+  }
+
+  .brandTitle {
+    font-size: 1.75rem;
+  }
+
+  .brandDescription {
+    font-size: 0.95rem;
+  }
+
+  .formTitle {
+    font-size: 1.5rem;
+  }
+
+  .formSection {
+    padding: 2rem 1.25rem;
+  }
+
+  .brandSection {
+    padding: 2rem 1.25rem;
+  }
+
+  .demoButton {
+    padding: 0.75rem 1rem;
+  }
+
+  .demoIcon {
+    font-size: 1.5rem;
+  }
+
+  .logo {
+    margin-bottom: 2rem;
+  }
+
+  .logoIcon {
+    font-size: 2rem;
+  }
+
+  .logoText {
+    font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .brandTitle {
+    font-size: 1.5rem;
+  }
+
+  .formTitle {
+    font-size: 1.25rem;
+  }
+
+  .input {
+    padding: 0.875rem 1rem;
+  }
+}
