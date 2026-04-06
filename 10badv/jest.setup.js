@@ -23,4 +23,5 @@ jest.mock('next/navigation', () => ({
 }));
 
 // Mock environment variables
-process.env.NEXT_PUBLIC_API_URL = 'http://localhost:3000/api';
+// API URL에서 /api를 제거 - api.js에서 endpoint에 이미 /api가 포함되어 있음
+process.env.NEXT_PUBLIC_API_URL = '';
