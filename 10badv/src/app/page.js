@@ -2,9 +2,12 @@ import Link from 'next/link';
 import FeaturedSection from '@/components/home/FeaturedSection';
 import StatsSection from '@/components/home/StatsSection';
 import DesignerSection from '@/components/home/DesignerSection';
+import { isRuntimeReadOnlyMode } from '@/lib/runtimeMode';
 import styles from './home.module.css';
 
 export default function Home() {
+  const isReadOnlyMode = isRuntimeReadOnlyMode();
+
   return (
     <main className="min-h-screen">
       <section className={styles.hero}>
@@ -31,12 +34,19 @@ export default function Home() {
                 포트폴리오 둘러보기
               </button>
             </Link>
-            <Link href="/auth/signup">
-              <button className={`${styles.heroCtaButton} ${styles.heroCtaSecondary}`}>
-                무료로 시작하기
-              </button>
-            </Link>
+            {!isReadOnlyMode && (
+              <Link href="/auth/signup">
+                <button className={`${styles.heroCtaButton} ${styles.heroCtaSecondary}`}>
+                  무료로 시작하기
+                </button>
+              </Link>
+            )}
           </div>
+          {isReadOnlyMode && (
+            <div className={styles.betaNotice}>
+              현재는 비용 최적화를 위한 클로즈드 테스트 모드입니다. 공개 회원가입/결제 기능은 잠시 비활성화되었습니다.
+            </div>
+          )}
         </div>
       </section>
       <StatsSection />

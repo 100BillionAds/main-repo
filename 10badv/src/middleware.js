@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
+import { isRuntimeReadOnlyMode } from '@/lib/runtimeMode';
 
 // 인증이 필요한 경로
 const protectedPaths = [
@@ -26,8 +27,45 @@ const authPaths = [
   '/auth/signup',
 ];
 
+const readOnlyBlockedPagePaths = [
+  '/login',
+  '/register',
+  '/auth/signup',
+  '/dashboard',
+  '/my-page',
+  '/my-portfolios',
+  '/my-transactions',
+  '/payment',
+  '/payments',
+  '/points',
+  '/profile',
+  '/chat',
+  '/admin',
+  '/requests/create',
+];
+
 export async function middleware(request) {
   const { pathname } = request.nextUrl;
+  const isReadOnlyMode = isRuntimeReadOnlyMode();
+
+  if (isReadOnlyMode) {
+    if (pathname.startsWith('/api/')) {
+      const blockedMethods = ['POST', 'PUT', 'PATCH', 'DELETE'];
+      if (blockedMethods.includes(request.method.toUpperCase())) {
+        return NextResponse.json(
+          { error: '현재 클로즈드 테스트 모드입니다. 쓰기 기능은 잠시 비활성화되었습니다.' },
+          { status: 503 }
+        );
+      }
+      return NextResponse.next();
+    }
+
+    if (readOnlyBlockedPagePaths.some((path) => pathname.startsWith(path))) {
+      const redirectUrl = new URL('/', request.url);
+      redirectUrl.searchParams.set('beta', 'readonly');
+      return NextResponse.redirect(redirectUrl);
+    }
+  }
 
   // API 라우트는 각 핸들러에서 인증 처리
   if (pathname.startsWith('/api/')) {

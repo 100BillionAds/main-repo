@@ -38,6 +38,21 @@ Vercel 대시보드에서 다음 환경 변수를 설정하세요:
 - `NEXTAUTH_URL`
 - 기타 필요한 환경 변수
 
+### 4-1. 비용 0원 클로즈드 테스트 모드
+
+DB 비용을 당장 쓰지 않을 경우, 아래처럼 운영을 읽기 중심으로 잠시 전환할 수 있습니다.
+
+1. Vercel 환경 변수 설정:
+   - `CLOSED_BETA_MODE=true`
+   - `NEXT_PUBLIC_CLOSED_BETA_MODE=true`
+2. `DATABASE_HOST`, `DATABASE_USER`, `DATABASE_NAME`는 비워둠
+3. 재배포
+
+이 모드에서는:
+- 회원가입/결제/쓰기 API(POST/PUT/PATCH/DELETE)가 503으로 차단됩니다.
+- 홈/조회 페이지는 유지됩니다.
+- 공개 회원가입 버튼과 일부 동선이 자동으로 제한됩니다.
+
 ### 5. 저비용 DB 선택지
 
 AWS RDS 대신 아래 옵션을 우선 권장합니다.

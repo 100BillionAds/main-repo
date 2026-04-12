@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import bcrypt from 'bcrypt';
 import { getUserByUsername, getUserByEmail, createUser, initializeDatabase } from '@/lib/db';
 import { checkRateLimit } from '@/lib/rateLimit';
+import { isRuntimeReadOnlyMode } from '@/lib/runtimeMode';
 
 // 데이터베이스 초기화
 initializeDatabase().then(success => {
@@ -12,7 +13,6 @@ initializeDatabase().then(success => {
 
 // 허용된 역할 (admin은 API를 통해 가입 불가)
 const ALLOWED_ROLES = ['user', 'designer'];
-const REQUIRED_DATABASE_ENV = ['DATABASE_HOST', 'DATABASE_USER', 'DATABASE_NAME'];
 const DATABASE_ERROR_CODES = new Set([
   'ER_ACCESS_DENIED_ERROR',
   'ER_BAD_DB_ERROR',
@@ -21,14 +21,17 @@ const DATABASE_ERROR_CODES = new Set([
   'ETIMEDOUT',
 ]);
 
-function getMissingDatabaseEnv() {
-  return REQUIRED_DATABASE_ENV.filter((key) => !process.env[key]);
-}
-
 /**
  * POST /api/auth/register - 회원가입
  */
 export async function POST(request) {
+  if (isRuntimeReadOnlyMode()) {
+    return NextResponse.json(
+      { error: '현재 클로즈드 테스트 모드입니다. 회원가입은 잠시 비활성화되었습니다.' },
+      { status: 503 }
+    );
+  }
+
   try {
     // Rate Limiting: 분당 5회 (회원가입 남용 방지)
     const { allowed, headers: rlHeaders } = checkRateLimit(request, { limit: 5, windowMs: 60 * 1000 });
@@ -46,15 +49,6 @@ export async function POST(request) {
       return NextResponse.json(
         { error: '요청 본문(JSON) 형식이 올바르지 않습니다.' },
         { status: 400 }
-      );
-    }
-
-    const missingDatabaseEnv = getMissingDatabaseEnv();
-    if (process.env.NODE_ENV === 'production' && missingDatabaseEnv.length > 0) {
-      console.error('Register blocked: missing database env', missingDatabaseEnv);
-      return NextResponse.json(
-        { error: '현재 회원가입을 처리할 수 없습니다. 잠시 후 다시 시도해주세요.' },
-        { status: 503 }
       );
     }
 

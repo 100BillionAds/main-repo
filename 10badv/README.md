@@ -4,6 +4,20 @@
 
 ## 🚀 빠른 시작
 
+## 🔒 비용 0원 클로즈드 테스트 모드
+
+운영 비용을 당장 쓰지 않으려면 아래처럼 설정하세요.
+
+```env
+CLOSED_BETA_MODE=true
+NEXT_PUBLIC_CLOSED_BETA_MODE=true
+# DATABASE_HOST / DATABASE_USER / DATABASE_NAME 미설정 상태 유지
+```
+
+- 프로덕션에서 회원가입/결제/쓰기 API(POST/PUT/PATCH/DELETE)가 자동 차단됩니다.
+- 메인 랜딩/조회 중심 페이지는 계속 열어둘 수 있습니다.
+- 다시 오픈하려면 `NEXT_PUBLIC_CLOSED_BETA_MODE=false`로 바꾸고 `DATABASE_*`를 채우면 됩니다.
+
 ### 1. 의존성 설치
 
 ```bash
