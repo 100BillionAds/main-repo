@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
+import { isRuntimeReadOnlyMode } from '@/lib/runtimeMode';
 import styles from './header.module.css';
 
 export default function Header() {
@@ -11,6 +12,7 @@ export default function Header() {
   const { data: session, status } = useSession();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const isReadOnlyMode = isRuntimeReadOnlyMode();
 
   const isActive = (path) => pathname === path || pathname?.startsWith(path + '/');
 
@@ -19,7 +21,7 @@ export default function Header() {
     { href: '/', label: '홈', icon: '🏠' },
     { href: '/portfolios', label: '포트폴리오', icon: '🛒' },
     { href: '/designers', label: '디자이너', icon: '🧑‍🎨' },
-    { href: '/dashboard', label: '대시보드', icon: '⚡' },
+    ...(isReadOnlyMode ? [] : [{ href: '/dashboard', label: '대시보드', icon: '⚡' }]),
   ];
 
   // 관리자 전용 메뉴
@@ -141,7 +143,7 @@ export default function Header() {
             </div>
           ) : (
             <Link href="/login" className={styles.loginButton}>
-              로그인
+              {isReadOnlyMode ? '클로즈드 테스트 중' : '로그인'}
             </Link>
           )}
 
