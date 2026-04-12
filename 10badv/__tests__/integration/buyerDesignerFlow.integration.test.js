@@ -52,14 +52,14 @@ describe('Buyer-Designer integration flow', () => {
   const { getServerSession } = require('next-auth');
 
   beforeAll(async () => {
-    process.env.DATABASE_HOST = process.env.DATABASE_HOST || '127.0.0.1';
-    process.env.DATABASE_PORT = process.env.DATABASE_PORT || '3306';
-    process.env.DATABASE_USER = process.env.DATABASE_USER || 'root';
-    process.env.DATABASE_PASSWORD = process.env.DATABASE_PASSWORD || 'root';
-    process.env.DATABASE_NAME = process.env.DATABASE_NAME || '10badv_test';
-    process.env.NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET || 'integration-secret';
-    process.env.NEXTAUTH_URL = process.env.NEXTAUTH_URL || 'http://localhost:3000';
-    process.env.NODE_ENV = process.env.NODE_ENV || 'test';
+    if (process.env.DATABASE_HOST === undefined) process.env.DATABASE_HOST = '127.0.0.1';
+    if (process.env.DATABASE_PORT === undefined) process.env.DATABASE_PORT = '3306';
+    if (process.env.DATABASE_USER === undefined) process.env.DATABASE_USER = 'root';
+    if (process.env.DATABASE_PASSWORD === undefined) process.env.DATABASE_PASSWORD = 'root';
+    if (process.env.DATABASE_NAME === undefined) process.env.DATABASE_NAME = '10badv_test';
+    if (process.env.NEXTAUTH_SECRET === undefined) process.env.NEXTAUTH_SECRET = 'integration-secret';
+    if (process.env.NEXTAUTH_URL === undefined) process.env.NEXTAUTH_URL = 'http://localhost:3000';
+    if (process.env.NODE_ENV === undefined) process.env.NODE_ENV = 'test';
 
     const { dbModule } = await loadModules();
     await dbModule.initializeDatabase();
