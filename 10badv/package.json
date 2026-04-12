@@ -17,7 +17,7 @@
     "test:coverage": "jest --coverage"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.990.0",
+    "@aws-sdk/client-s3": "^3.1029.0",
     "@portone/browser-sdk": "^0.1.1",
     "bcrypt": "^6.0.0",
     "dotenv": "^17.4.1",
