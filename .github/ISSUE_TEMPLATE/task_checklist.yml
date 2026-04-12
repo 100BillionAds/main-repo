@@ -1,0 +1,35 @@
+name: Delivery Task Checklist
+description: Track implementation tasks with quality gates.
+title: '[Task] '
+labels: ['task']
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What is the expected outcome?
+    validations:
+      required: true
+  - type: textarea
+    id: checklist
+    attributes:
+      label: Checklist
+      placeholder: |
+        - [ ] branch created
+        - [ ] implementation complete
+        - [ ] lint pass
+        - [ ] unit tests pass
+        - [ ] integration tests pass
+        - [ ] build pass
+        - [ ] docs updated
+        - [ ] PR merged
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Add blockers, follow-ups, or rollout notes.
+    validations:
+      required: false
+

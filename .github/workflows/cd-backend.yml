@@ -1,0 +1,31 @@
+name: cd-backend
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options: [staging, production]
+      deploy_ref:
+        description: 'Git ref (branch or tag) to deploy'
+        required: true
+        default: main
+
+jobs:
+  backend-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout target ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.deploy_ref }}
+
+      - name: Deployment summary
+        run: |
+          echo "Backend deployment workflow scaffold"
+          echo "Environment: ${{ inputs.environment }}"
+          echo "Ref: ${{ inputs.deploy_ref }}"
+          echo "Implement platform-specific deploy commands via secrets."
+

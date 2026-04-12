@@ -1,0 +1,11 @@
+# Default owners
+* @songdongjun
+
+# Application ownership
+/10badv/src/app/api/ @songdongjun
+/10badv/src/features/ @songdongjun
+/10badv/src/shared/ @songdongjun
+
+# Harness ownership
+/.github/ @songdongjun
+
