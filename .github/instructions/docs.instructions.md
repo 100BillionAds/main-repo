@@ -1,11 +1,10 @@
 ---
-description: "Use when updating architecture/deployment/contributing documentation to match code and workflow changes."
+description: "아키텍처/배포/기여 문서를 코드 및 워크플로 변경과 맞출 때 사용합니다."
 applyTo: "docs/**/*.md, README.md, 10badv/README.md"
 ---
-# Documentation Instructions
+# 문서 지침
 
-- Keep docs command-first and operationally actionable.
-- Update only sections impacted by real changes.
-- Prefer linking to canonical docs rather than duplicating long text.
-- Include low-cost launch options when infra choices are discussed.
-
+- 문서는 명령어 중심으로 작성하고 운영 관점에서 실행 가능해야 합니다.
+- 실제 변경 영향이 있는 섹션만 업데이트합니다.
+- 긴 텍스트 중복보다 기준 문서 링크를 우선합니다.
+- 인프라 선택 논의 시 저비용 출시 옵션을 포함합니다.

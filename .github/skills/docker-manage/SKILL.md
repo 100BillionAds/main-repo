@@ -1,17 +1,16 @@
 ---
 name: docker-manage
-description: "Manage local Docker-based runtime for app and database dependencies. Use for reproducible local/dev CI setup."
+description: "앱/DB 의존성을 위한 로컬 Docker 런타임을 관리할 때 사용합니다. 재현 가능한 로컬/개발 CI 환경 구성에 활용합니다."
 ---
 
-# Docker Manage
+# Docker 관리
 
-## When to Use
-- Standardizing local app+DB startup.
-- Running integration tests in containerized environment.
+## 사용 시점
+- 로컬 앱+DB 기동 방식을 표준화할 때
+- 컨테이너 환경에서 통합 테스트를 실행할 때
 
-## Procedure
-1. Define required services in `docker-compose.yml`.
-2. Keep health checks and env wiring explicit.
-3. Start/verify services and run smoke checks.
-4. Keep data volumes strategy clear for dev/test.
-
+## 절차
+1. `docker-compose.yml`에 필요한 서비스를 정의합니다.
+2. 헬스체크와 환경 변수 연결을 명시적으로 유지합니다.
+3. 서비스를 기동/검증하고 스모크 체크를 실행합니다.
+4. 개발/테스트용 데이터 볼륨 전략을 명확히 유지합니다.

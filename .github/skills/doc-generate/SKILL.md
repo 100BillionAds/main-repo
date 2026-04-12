@@ -1,17 +1,16 @@
 ---
 name: doc-generate
-description: "Generate concise technical docs and runbooks from implemented code/config changes. Use when release-facing documentation must be updated quickly."
+description: "구현된 코드/설정 변경을 기반으로 간결한 기술 문서와 런북을 생성할 때 사용합니다. 릴리즈 대상 문서를 빠르게 갱신해야 할 때 활용합니다."
 ---
 
-# Doc Generate
+# 문서 생성
 
-## When to Use
-- New workflow/process/config introduced.
-- Existing docs diverged from code behavior.
+## 사용 시점
+- 새로운 워크플로/프로세스/설정이 도입된 경우
+- 기존 문서가 코드 동작과 달라진 경우
 
-## Procedure
-1. Collect source of truth from code/scripts.
-2. Write command-first instructions.
-3. Include prerequisites and failure recovery notes.
-4. Keep docs aligned with actual repository paths.
-
+## 절차
+1. 코드/스크립트에서 최신 기준 정보를 수집합니다.
+2. 명령어 중심으로 문서를 작성합니다.
+3. 사전 조건과 실패 복구 노트를 포함합니다.
+4. 문서를 실제 저장소 경로와 일치시킵니다.

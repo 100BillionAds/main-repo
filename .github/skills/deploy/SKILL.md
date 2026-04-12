@@ -1,17 +1,16 @@
 ---
 name: deploy
-description: "Prepare deployment-ready configuration and release checklist for 10badv. Use for CI/CD setup, environment wiring, and launch validation."
+description: "10badv 배포 준비 설정과 릴리즈 체크리스트를 구성할 때 사용합니다. CI/CD 세팅, 환경 변수 연결, 출시 검증에 활용합니다."
 ---
 
-# Deploy
+# 배포
 
-## When to Use
-- Preparing staging/production deployment.
-- Defining release gates and rollback checks.
+## 사용 시점
+- 스테이징/프로덕션 배포를 준비할 때
+- 릴리즈 게이트와 롤백 점검 기준을 정의할 때
 
-## Procedure
-1. Verify lint/test/build gates are passing.
-2. Confirm environment variables and secrets map.
-3. Apply deployment steps for chosen platform.
-4. Run post-deploy smoke checks.
-
+## 절차
+1. lint/test/build 게이트 통과 여부를 확인합니다.
+2. 환경 변수와 시크릿 매핑을 점검합니다.
+3. 선택한 플랫폼의 배포 절차를 적용합니다.
+4. 배포 후 스모크 체크를 실행합니다.

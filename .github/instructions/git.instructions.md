@@ -1,10 +1,9 @@
 ---
-description: "Use when preparing branch strategy, commit hygiene, PR flow, and merge process automation."
+description: "브랜치 전략, 커밋 규칙, PR 흐름, 머지 자동화를 준비할 때 사용합니다."
 ---
-# Git Workflow Instructions
+# Git 워크플로 지침
 
-- Work on feature/fix branches; never commit directly to main.
-- Keep commits scoped and descriptive.
-- Merge only after required checks pass.
-- Use PR templates/checklists consistently.
-
+- feature/fix 브랜치에서 작업하고 main 직접 커밋을 금지합니다.
+- 커밋은 범위를 작게 유지하고 설명적으로 작성합니다.
+- 필수 체크 통과 후에만 머지합니다.
+- PR 템플릿/체크리스트를 일관되게 사용합니다.

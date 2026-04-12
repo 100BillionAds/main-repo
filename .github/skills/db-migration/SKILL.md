@@ -1,17 +1,16 @@
 ---
 name: db-migration
-description: "Plan and apply safe MySQL schema/data migrations with rollback awareness. Use for table/index changes and data backfill tasks."
+description: "롤백 가능성을 고려해 안전한 MySQL 스키마/데이터 마이그레이션을 계획·적용할 때 사용합니다. 테이블/인덱스 변경과 데이터 백필 작업에 활용합니다."
 ---
 
-# DB Migration
+# DB 마이그레이션
 
-## When to Use
-- New schema/index needed for features.
-- Data transform/backfill required.
+## 사용 시점
+- 기능 구현을 위해 새로운 스키마/인덱스가 필요한 경우
+- 데이터 변환/백필 작업이 필요한 경우
 
-## Procedure
-1. Define additive schema change first.
-2. Prepare rollback strategy.
-3. Validate query/index impact.
-4. Update related docs and tests.
-
+## 절차
+1. 추가형(Additive) 스키마 변경부터 정의합니다.
+2. 롤백 전략을 준비합니다.
+3. 쿼리/인덱스 영향도를 검증합니다.
+4. 관련 문서와 테스트를 업데이트합니다.

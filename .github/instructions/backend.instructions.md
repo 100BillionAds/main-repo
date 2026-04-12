@@ -1,11 +1,10 @@
 ---
-description: "Use when working in backend modules including db utilities, server setup, transaction handling, and domain services."
+description: "DB 유틸리티, 서버 구성, 트랜잭션 처리, 도메인 서비스 등 백엔드 모듈 작업 시 사용합니다."
 applyTo: "10badv/src/lib/**/*.js, 10badv/server.js"
 ---
-# Backend Instructions
+# 백엔드 지침
 
-- Keep data consistency and transaction safety as first priority.
-- Prefer shared helpers/utilities over duplicated query logic.
-- Make failure modes explicit; avoid broad catch-and-ignore behavior.
-- Keep performance in mind for listing endpoints (indexes, limits, pagination).
-
+- 데이터 일관성과 트랜잭션 안정성을 최우선으로 둡니다.
+- 중복 쿼리 로직보다 공용 헬퍼/유틸을 우선 사용합니다.
+- 실패 모드를 명시적으로 처리하고 광범위한 catch-and-ignore를 피합니다.
+- 목록성 엔드포인트는 성능(인덱스/limit/페이지네이션)을 고려합니다.

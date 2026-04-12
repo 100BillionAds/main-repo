@@ -1,17 +1,16 @@
 ---
 name: test-generate
-description: "Generate unit and integration tests from user-facing behaviors and API contracts. Use when strengthening release confidence."
+description: "사용자 관점 동작과 API 계약을 기반으로 단위/통합 테스트를 생성할 때 사용합니다. 릴리즈 신뢰도를 강화해야 할 때 활용합니다."
 ---
 
-# Test Generate
+# 테스트 생성
 
-## When to Use
-- New behavior lacks test coverage.
-- Existing bug needs regression test.
+## 사용 시점
+- 새로운 동작에 테스트 커버리지가 부족한 경우
+- 기존 버그에 회귀 테스트가 필요한 경우
 
-## Procedure
-1. Capture behavior in Given-When-Then form.
-2. Add minimal fixtures/mocks for deterministic execution.
-3. Validate happy path and critical failure path.
-4. Keep test names and assertions user-centric.
-
+## 절차
+1. 동작을 Given-When-Then 형식으로 정의합니다.
+2. 결정적 실행을 위한 최소 fixture/mock을 추가합니다.
+3. 성공 경로와 핵심 실패 경로를 검증합니다.
+4. 테스트 이름과 단언을 사용자 중심으로 유지합니다.

@@ -1,17 +1,16 @@
 ---
 name: api-from-spec
-description: "Generate or refine API route handlers and contracts from written endpoint specs. Use when turning API docs into implementation-ready route code."
+description: "작성된 API 스펙에서 라우트 핸들러와 계약을 생성/개선합니다. API 문서를 구현 가능한 라우트 코드로 전환할 때 사용합니다."
 ---
 
-# API from Spec
+# API 스펙 기반 구현
 
-## When to Use
-- API contract is defined but route implementation is missing.
-- Need consistent request/response shape and validation.
+## 사용 시점
+- API 계약은 정의되었지만 라우트 구현이 없는 경우
+- 요청/응답 형태와 검증 로직의 일관성이 필요한 경우
 
-## Procedure
-1. Read the target spec and identify required auth/validation.
-2. Map endpoint to `10badv/src/app/api/**/route.js`.
-3. Implement or update handler with explicit error codes.
-4. Add or update tests for happy/sad paths.
-
+## 절차
+1. 대상 스펙을 읽고 필요한 인증/검증 요구사항을 식별합니다.
+2. 엔드포인트를 `10badv/src/app/api/**/route.js`에 매핑합니다.
+3. 명시적인 오류 코드 기준으로 핸들러를 구현/수정합니다.
+4. 성공/실패 경로 테스트를 추가/갱신합니다.

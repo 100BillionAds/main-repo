@@ -1,17 +1,16 @@
 ---
 name: new-domain
-description: "Introduce a new business domain module safely across API, data, and tests. Use when expanding feature scope with new entities."
+description: "API·데이터·테스트 전반에서 새로운 비즈니스 도메인 모듈을 안전하게 도입할 때 사용합니다. 새 엔티티로 기능 범위를 확장할 때 활용합니다."
 ---
 
-# New Domain
+# 신규 도메인
 
-## When to Use
-- Adding new bounded context/entity set.
-- Creating new API + persistence surfaces.
+## 사용 시점
+- 새로운 bounded context/엔티티 집합을 추가할 때
+- 새로운 API와 영속성 계층을 함께 만들 때
 
-## Procedure
-1. Define domain boundaries and naming.
-2. Add DB schema support and API handlers.
-3. Implement UI and integration points.
-4. Cover flow with tests and docs.
-
+## 절차
+1. 도메인 경계와 명명 규칙을 정의합니다.
+2. DB 스키마 지원과 API 핸들러를 추가합니다.
+3. UI와 통합 지점을 구현합니다.
+4. 테스트와 문서로 플로우를 보완합니다.

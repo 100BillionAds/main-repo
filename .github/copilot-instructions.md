@@ -1,21 +1,21 @@
-# 100BillionAds Workspace Instructions
+# 100BillionAds 워크스페이스 지침
 
-## Delivery Workflow
-- Always work on a feature branch and merge only after all quality gates pass.
-- Treat this repository as a monorepo: app code is under `10badv/`, docs under `docs/`.
-- Do not bypass failed checks; fix root causes before marking work complete.
+## 전달(Delivery) 워크플로
+- 항상 기능 브랜치에서 작업하고, 모든 품질 게이트 통과 후에만 머지합니다.
+- 이 저장소는 모노레포로 취급합니다: 앱 코드는 `10badv/`, 문서는 `docs/`에 있습니다.
+- 실패한 체크를 우회하지 말고, 완료 처리 전에 근본 원인을 수정합니다.
 
-## Quality Gates (required before merge)
+## 품질 게이트 (머지 전 필수)
 - `cd 10badv && npm run lint`
 - `cd 10badv && npm run test:unit`
 - `cd 10badv && npm run test:integration`
 - `cd 10badv && npm run build`
 
-## Backend/Data Guardrails
-- Never hardcode secrets; use environment variables only.
-- Keep DB schema changes backward-compatible and reversible.
-- For launch phase, prefer low-cost DB paths first (local MySQL for dev/test, managed low-cost MySQL for production).
+## 백엔드/데이터 가드레일
+- 시크릿은 절대 하드코딩하지 않고 환경 변수만 사용합니다.
+- DB 스키마 변경은 하위 호환성과 롤백 가능성을 유지합니다.
+- 초기 출시 단계에서는 저비용 DB 경로를 우선합니다(개발/테스트: 로컬 MySQL, 운영: 저비용 매니지드 MySQL).
 
-## Testing Expectations
-- Cover real user behavior in tests, not implementation details.
-- Critical commerce flow (request -> proposal -> transaction) must remain protected by integration tests.
+## 테스트 기대사항
+- 테스트는 구현 세부가 아니라 실제 사용자 동작을 검증합니다.
+- 핵심 거래 플로우(request -> proposal -> transaction)는 통합 테스트로 반드시 보호합니다.

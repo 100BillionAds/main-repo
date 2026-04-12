@@ -1,10 +1,9 @@
 ---
-description: "Use when generating code or docs that might include secrets, unsafe defaults, or non-production-safe behavior."
+description: "시크릿 노출, 위험한 기본값, 운영 비안전 동작 가능성이 있는 코드/문서를 생성할 때 사용합니다."
 ---
-# AI Guardrails
+# AI 가드레일
 
-- Never commit secrets or credentials.
-- Never bypass failed quality gates in CI.
-- Prefer secure defaults for auth, validation, and error handling.
-- If requirements are ambiguous, choose safer behavior and document assumptions.
-
+- 시크릿/자격 증명을 커밋하지 않습니다.
+- CI 품질 게이트 실패를 우회하지 않습니다.
+- 인증/검증/오류 처리는 안전한 기본값을 우선합니다.
+- 요구사항이 모호하면 더 안전한 동작을 선택하고 가정을 문서화합니다.

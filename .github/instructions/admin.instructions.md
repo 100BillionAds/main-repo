@@ -1,11 +1,10 @@
 ---
-description: "Use when implementing admin-only APIs, dashboards, moderation, or privileged operational actions."
+description: "관리자 전용 API, 대시보드, 모더레이션, 권한 작업을 구현할 때 사용합니다."
 applyTo: "10badv/src/app/api/admin/**/*.js, 10badv/src/app/(admin)/**/*.js"
 ---
-# Admin Feature Instructions
+# 관리자 기능 지침
 
-- Every admin API must verify session and role before business logic.
-- Return explicit 401/403 responses for unauthorized access.
-- Log critical admin actions through existing logging patterns.
-- Prefer idempotent operations for moderation and status updates.
-
+- 모든 관리자 API는 비즈니스 로직 전에 세션/권한을 반드시 검증합니다.
+- 무권한 접근은 401/403을 명시적으로 반환합니다.
+- 중요 관리자 작업은 기존 로깅 패턴으로 기록합니다.
+- 모더레이션/상태 업데이트는 가능한 한 멱등(idempotent)하게 구현합니다.

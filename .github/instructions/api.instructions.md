@@ -1,12 +1,11 @@
 ---
-description: "Use when adding or modifying Next.js API routes, request/response contracts, or auth-guarded server logic."
+description: "Next.js API 라우트, 요청/응답 계약, 인증 보호 서버 로직을 추가/수정할 때 사용합니다."
 applyTo: "10badv/src/app/api/**/*.js"
 ---
-# API Instructions
+# API 지침
 
-- Always validate required inputs before DB operations.
-- Use explicit HTTP status codes and stable JSON shapes.
-- Enforce role/session checks with `getServerSession` for protected routes.
-- Wrap transactional multi-table writes in DB transactions.
-- Keep error messages useful but avoid leaking sensitive internals.
-
+- DB 작업 전에 필수 입력값을 항상 검증합니다.
+- HTTP 상태 코드와 JSON 응답 형태를 안정적으로 유지합니다.
+- 보호 라우트는 `getServerSession` 기반 세션/권한 검사를 강제합니다.
+- 다중 테이블 트랜잭션 쓰기는 DB 트랜잭션으로 감쌉니다.
+- 오류 메시지는 유용하게 유지하되 내부 민감 정보 노출을 피합니다.

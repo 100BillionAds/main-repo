@@ -1,11 +1,10 @@
 ---
-description: "Use when creating or updating CI/CD workflows, release gates, branch policies, and deployment automation."
+description: "CI/CD 워크플로, 릴리즈 게이트, 브랜치 정책, 배포 자동화를 만들거나 수정할 때 사용합니다."
 applyTo: ".github/workflows/**/*.yml"
 ---
-# CI/CD Instructions
+# CI/CD 지침
 
-- CI must fail on lint/test/build failures.
-- Keep workflow steps aligned with real package scripts.
-- Cache dependencies when safe, but do not hide failures.
-- Protect merge path with required checks and clear status names.
-
+- lint/test/build 실패 시 CI는 반드시 실패 처리합니다.
+- 워크플로 단계는 실제 패키지 스크립트와 일치시킵니다.
+- 의존성 캐시는 안전할 때만 사용하고 실패를 숨기지 않습니다.
+- 머지 경로는 필수 체크와 명확한 상태 이름으로 보호합니다.
