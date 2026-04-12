@@ -63,7 +63,7 @@ public/uploads/**
 .vercel/
 
 # ----- Generated -----
-src/generated/prisma
+src/generated/prisma/
 
 # ----- Package manager -----
 .pnp
