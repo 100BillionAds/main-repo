@@ -62,6 +62,7 @@ logs/
 *.pid
 *.seed
 *.pid.lock
+.commit-msg.tmp
 
 # ----- Editor / IDE -----
 .vscode/
@@ -88,5 +89,3 @@ coverage/
 
 # ----- Generated -----
 **/generated/prisma
-
-.env/example
