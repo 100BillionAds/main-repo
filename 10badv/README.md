@@ -21,6 +21,7 @@ cp .env.example .env.local
 ```env
 # Database
 DATABASE_HOST=localhost
+DATABASE_PORT=3306
 DATABASE_USER=root
 DATABASE_PASSWORD=your_password
 DATABASE_NAME=10badv
@@ -40,6 +41,12 @@ PORTONE_API_SECRET=your_api_secret
 ```bash
 # MySQL 데이터베이스 생성
 mysql -u root -p -e "CREATE DATABASE 10badv CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+```
+
+또는 Docker 기반으로 저비용 로컬 실행:
+
+```bash
+docker compose up -d db
 ```
 
 ### 4. 개발 서버 실행
@@ -87,6 +94,12 @@ npm run dev
 ```bash
 # 전체 테스트
 npm test
+
+# 단위 테스트
+npm run test:unit
+
+# 통합 테스트 (MySQL 필요)
+npm run test:integration
 
 # Watch 모드
 npm run test:watch
