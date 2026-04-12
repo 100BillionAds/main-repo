@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcrypt';
-import pool from '@/lib/db';
 import { getUserByUsername, getUserByEmail, createUser, initializeDatabase } from '@/lib/db';
 import { checkRateLimit } from '@/lib/rateLimit';
 
@@ -13,6 +12,18 @@ initializeDatabase().then(success => {
 
 // 허용된 역할 (admin은 API를 통해 가입 불가)
 const ALLOWED_ROLES = ['user', 'designer'];
+const REQUIRED_DATABASE_ENV = ['DATABASE_HOST', 'DATABASE_USER', 'DATABASE_NAME'];
+const DATABASE_ERROR_CODES = new Set([
+  'ER_ACCESS_DENIED_ERROR',
+  'ER_BAD_DB_ERROR',
+  'ECONNREFUSED',
+  'ENOTFOUND',
+  'ETIMEDOUT',
+]);
+
+function getMissingDatabaseEnv() {
+  return REQUIRED_DATABASE_ENV.filter((key) => !process.env[key]);
+}
 
 /**
  * POST /api/auth/register - 회원가입
@@ -28,7 +39,25 @@ export async function POST(request) {
       );
     }
 
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: '요청 본문(JSON) 형식이 올바르지 않습니다.' },
+        { status: 400 }
+      );
+    }
+
+    const missingDatabaseEnv = getMissingDatabaseEnv();
+    if (process.env.NODE_ENV === 'production' && missingDatabaseEnv.length > 0) {
+      console.error('Register blocked: missing database env', missingDatabaseEnv);
+      return NextResponse.json(
+        { error: '현재 회원가입을 처리할 수 없습니다. 잠시 후 다시 시도해주세요.' },
+        { status: 503 }
+      );
+    }
+
     const { username, password, name, email, role = 'user', avatar_url = null } = body;
 
     // 유효성 검사
@@ -124,6 +153,14 @@ export async function POST(request) {
     );
   } catch (error) {
     console.error('Register error:', error);
+
+    if (error && DATABASE_ERROR_CODES.has(error.code)) {
+      return NextResponse.json(
+        { error: '현재 회원가입을 처리할 수 없습니다. 잠시 후 다시 시도해주세요.' },
+        { status: 503 }
+      );
+    }
+
     return NextResponse.json(
       { error: '회원가입 중 오류가 발생했습니다.' },
       { status: 500 }
