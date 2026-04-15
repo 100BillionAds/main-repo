@@ -90,7 +90,14 @@ export async function PATCH(request, { params }) {
     if (title !== undefined) { updates.push('title = ?'); values.push(title); }
     if (description !== undefined) { updates.push('description = ?'); values.push(description); }
     if (category !== undefined) { updates.push('category = ?'); values.push(category); }
-    if (price !== undefined) { updates.push('price = ?'); values.push(price); }
+    if (price !== undefined) {
+      const parsedPrice = Number(price);
+      if (!Number.isInteger(parsedPrice) || parsedPrice < 1000 || parsedPrice % 1000 !== 0) {
+        return NextResponse.json({ success: false, error: '가격은 최소 1,000원이며 1,000원 단위로 입력해야 합니다.' }, { status: 400 });
+      }
+      updates.push('price = ?');
+      values.push(parsedPrice);
+    }
     if (thumbnail_url !== undefined) { updates.push('thumbnail_url = ?'); values.push(thumbnail_url); }
     if (status !== undefined && isAdmin) { updates.push('status = ?'); values.push(status); }
 

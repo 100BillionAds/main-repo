@@ -51,7 +51,7 @@ export async function POST(request) {
         if (exist.length === 0) {
           await pool.execute(
             'INSERT INTO portfolios (designer_id, title, description, category, price, status, views, likes) VALUES (?, ?, ?, ?, ?, ?, 0, 0)',
-            [designer.id, title, `${title} 설명`, '디자인', 100000 * j, 'approved']
+            [designer.id, title, `${title} 설명`, '디자인', 1000, 'approved']
           );
           portfolioCount++;
         }

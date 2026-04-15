@@ -66,8 +66,7 @@ export async function GET(request) {
       params.push(status);
     }
 
-    query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
-    params.push(limit, offset);
+    query += ` ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}`;
 
     const [payments] = await pool.execute(query, params);
 

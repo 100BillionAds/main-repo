@@ -22,8 +22,12 @@ export async function GET(request) {
     );
 
     const [transactions] = await pool.execute(
-      'SELECT * FROM point_transactions WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?',
-      [session.user.id, limit, offset]
+      `SELECT *
+         FROM point_transactions
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+        LIMIT ${limit} OFFSET ${offset}`,
+      [session.user.id]
     );
 
     const [countResult] = await pool.execute(

@@ -4,11 +4,10 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Script from 'next/script';
 import styles from './PointsCharge.module.css';
 
 export default function PointsChargePage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const router = useRouter();
   const [points, setPoints] = useState(0);
   const [chargeAmount, setChargeAmount] = useState('');
@@ -17,12 +16,17 @@ export default function PointsChargePage() {
   const [transactions, setTransactions] = useState([]);
 
   useEffect(() => {
-    if (!session) {
+    if (status === 'loading') {
+      return;
+    }
+
+    if (status === 'unauthenticated') {
       router.push('/login');
       return;
     }
+
     fetchPointsData();
-  }, [session]);
+  }, [session, status]);
 
   const fetchPointsData = async () => {
     try {
@@ -56,26 +60,16 @@ export default function PointsChargePage() {
     setIsLoading(true);
 
     try {
-      // 포인트 충전 API 직접 호출 (테스트용)
-      const response = await fetch('/api/points', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          amount
-        })
+      const params = new URLSearchParams({
+        amount: String(amount),
+        title: '포인트 충전',
       });
 
-      const data = await response.json();
-
-      if (data.success) {
-        alert(`${amount.toLocaleString()}P가 충전되었습니다!\n현재 보유 포인트: ${data.points.toLocaleString()}P`);
-        setChargeAmount('');
-        fetchPointsData();
-      } else {
-        alert(data.error || '포인트 충전에 실패했습니다.');
+      if (paymentMethod) {
+        params.set('method', paymentMethod);
       }
+
+      router.push(`/payment?${params.toString()}`);
     } catch (error) {
       console.error('포인트 충전 오류:', error);
       alert('포인트 충전 중 오류가 발생했습니다.');
@@ -105,13 +99,6 @@ export default function PointsChargePage() {
   };
 
   return (
-    <>
-      {/* 포트원 SDK 로드 */}
-      <Script
-        src="https://cdn.iamport.kr/v1/iamport.js"
-        strategy="afterInteractive"
-      />
-      
       <div className={styles.container}>
         <div className={styles.header}>
           <Link href="/my-page" className={styles.backButton}>
@@ -133,13 +120,13 @@ export default function PointsChargePage() {
           
           {/* 빠른 금액 선택 */}
           <div className={styles.quickAmounts}>
-            {[10000, 30000, 50000, 100000, 300000, 500000].map((amount) => (
+            {[1000, 3000, 5000, 10000, 30000, 50000].map((amount) => (
               <button
                 key={amount}
                 onClick={() => handleQuickAmount(amount)}
                 className={styles.quickAmountButton}
               >
-                {(amount / 10000).toFixed(0)}만원
+                {amount.toLocaleString()}원
               </button>
             ))}
           </div>
@@ -151,10 +138,10 @@ export default function PointsChargePage() {
               type="number"
               value={chargeAmount}
               onChange={(e) => setChargeAmount(e.target.value)}
-              placeholder="금액을 입력하세요 (최소 1만원)"
+              placeholder="금액을 입력하세요 (최소 1천원)"
               className={styles.input}
-              min="10000"
-              step="10000"
+              min="1000"
+              step="1000"
             />
           </div>
 
@@ -168,8 +155,7 @@ export default function PointsChargePage() {
             >
               <option value="card">신용/체크카드</option>
               <option value="bank">계좌이체</option>
-              <option value="kakao">카카오페이</option>
-              <option value="naver">네이버페이</option>
+              <option value="virtual">가상계좌</option>
             </select>
           </div>
 
@@ -183,7 +169,7 @@ export default function PointsChargePage() {
           </button>
 
           <div className={styles.notice}>
-            <p>• 최소 충전 금액은 1만원입니다.</p>
+            <p>• 최소 충전 금액은 1천원입니다.</p>
             <p>• 충전된 포인트는 환불이 불가합니다.</p>
             <p>• 포인트 인출 시 1만원의 수수료가 부과됩니다.</p>
           </div>
@@ -233,6 +219,5 @@ export default function PointsChargePage() {
         </div>
       </div>
     </div>
-    </>
   );
 }

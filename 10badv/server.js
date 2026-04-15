@@ -15,6 +15,7 @@ const handle = app.getRequestHandler();
 // MySQL 풀 설정 (db.js와 동일한 설정 — server.js는 CommonJS이므로 별도 풀 필요)
 const dbPool = mysql.createPool({
   host: process.env.DATABASE_HOST || 'localhost',
+  port: parseInt(process.env.DATABASE_PORT || '3306', 10),
   user: process.env.DATABASE_USER || 'root',
   password: process.env.DATABASE_PASSWORD || '',
   database: process.env.DATABASE_NAME || '10badv',

@@ -89,10 +89,12 @@ export async function POST(request) {
 
     const { portfolio_id, amount } = await request.json();
 
-    if (!portfolio_id || !amount) {
+    if (!portfolio_id) {
       connection.release();
       return NextResponse.json({ success: false, error: '필수 정보가 누락되었습니다.' }, { status: 400 });
     }
+
+    const requestedAmount = Number(amount);
 
     await connection.beginTransaction();
 
@@ -109,6 +111,21 @@ export async function POST(request) {
     }
 
     const portfolio = portfolios[0];
+    const portfolioPrice = Number(portfolio.price || 0);
+
+    if (!Number.isInteger(portfolioPrice) || portfolioPrice < 1000 || portfolioPrice % 1000 !== 0) {
+      await connection.rollback();
+      connection.release();
+      return NextResponse.json({ success: false, error: '포트폴리오 가격이 유효하지 않습니다.' }, { status: 400 });
+    }
+
+    if (Number.isFinite(requestedAmount) && requestedAmount > 0 && requestedAmount !== portfolioPrice) {
+      await connection.rollback();
+      connection.release();
+      return NextResponse.json({ success: false, error: '포트폴리오 가격과 결제 금액이 일치하지 않습니다.' }, { status: 400 });
+    }
+
+    const transactionAmount = portfolioPrice;
 
     if (portfolio.designer_id === parseInt(session.user.id)) {
       await connection.rollback();
@@ -130,17 +147,17 @@ export async function POST(request) {
 
     const buyerPoints = buyers[0].points || 0;
 
-    if (buyerPoints < amount) {
+    if (buyerPoints < transactionAmount) {
       await connection.rollback();
       connection.release();
       return NextResponse.json({
         success: false,
-        error: `포인트가 부족합니다. (필요: ${amount.toLocaleString()}P, 보유: ${buyerPoints.toLocaleString()}P)`
+        error: `포인트가 부족합니다. (필요: ${transactionAmount.toLocaleString()}P, 보유: ${buyerPoints.toLocaleString()}P)`
       }, { status: 400 });
     }
 
     // 구매자 포인트 차감 (에스크로)
-    const newBuyerBalance = buyerPoints - amount;
+    const newBuyerBalance = buyerPoints - transactionAmount;
     await connection.execute(
       'UPDATE users SET points = ? WHERE id = ?',
       [newBuyerBalance, session.user.id]
@@ -151,7 +168,7 @@ export async function POST(request) {
       `INSERT INTO transactions
        (portfolio_id, buyer_id, designer_id, amount, status, payment_method, payment_status)
        VALUES (?, ?, ?, ?, 'pending', 'points', 'completed')`,
-      [portfolio_id, session.user.id, portfolio.designer_id, amount]
+      [portfolio_id, session.user.id, portfolio.designer_id, transactionAmount]
     );
 
     const transactionId = result.insertId;
@@ -161,7 +178,7 @@ export async function POST(request) {
       `INSERT INTO point_transactions
        (user_id, type, amount, balance_after, description, reference_type, reference_id, status)
        VALUES (?, 'use', ?, ?, ?, 'transaction', ?, 'completed')`,
-      [session.user.id, amount, newBuyerBalance, `포트폴리오 구매 (에스크로): ${portfolio.title}`, transactionId]
+      [session.user.id, transactionAmount, newBuyerBalance, `포트폴리오 구매 (에스크로): ${portfolio.title}`, transactionId]
     );
 
     await connection.commit();

@@ -24,7 +24,7 @@ export default function PortfolioCreateForm() {
     title: '',
     description: '',
     category: '',
-    price: '',
+    price: '1000',
     thumbnail_url: '',
     images: []
   });
@@ -90,8 +90,12 @@ export default function PortfolioCreateForm() {
       if (!formData.category) {
         throw new Error('카테고리를 선택해주세요.');
       }
-      if (!formData.price || formData.price <= 0) {
-        throw new Error('가격을 입력해주세요.');
+      const parsedPrice = Number(formData.price);
+      if (!Number.isInteger(parsedPrice) || parsedPrice < 1000) {
+        throw new Error('가격은 최소 1,000원 이상이어야 합니다.');
+      }
+      if (parsedPrice % 1000 !== 0) {
+        throw new Error('가격은 1,000원 단위로 입력해주세요.');
       }
       if (!thumbnailFile) {
         throw new Error('썸네일 이미지를 선택해주세요.');
@@ -232,13 +236,13 @@ export default function PortfolioCreateForm() {
               name="price"
               value={formData.price}
               onChange={handleChange}
-              placeholder="0"
+              placeholder="1000"
               className={styles.input}
-              min="0"
+              min="1000"
               step="1000"
               required
             />
-            <p className={styles.hint}>단위: 원</p>
+            <p className={styles.hint}>단위: 원 (최소 1,000원, 1,000원 단위)</p>
           </div>
           
           <div className={styles.field}>
