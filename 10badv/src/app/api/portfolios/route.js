@@ -77,16 +77,21 @@ export async function POST(request) {
 
     const data = await request.json();
     const { title, description, category, price, thumbnail_url, images } = data;
+    const parsedPrice = Number(price);
 
-    if (!title || !description || !category || !price) {
+    if (!title || !description || !category || !Number.isInteger(parsedPrice)) {
       return NextResponse.json({ success: false, error: '필수 항목을 모두 입력해주세요.' }, { status: 400 });
+    }
+
+    if (parsedPrice < 1000 || parsedPrice % 1000 !== 0) {
+      return NextResponse.json({ success: false, error: '가격은 최소 1,000원이며 1,000원 단위로 입력해야 합니다.' }, { status: 400 });
     }
 
     const [result] = await pool.execute(
       `INSERT INTO portfolios
        (designer_id, title, description, category, price, thumbnail_url, status, views, likes)
        VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, 0)`,
-      [session.user.id, title, description, category, price, thumbnail_url || null]
+      [session.user.id, title, description, category, parsedPrice, thumbnail_url || null]
     );
 
     const portfolioId = result.insertId;

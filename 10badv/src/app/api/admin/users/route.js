@@ -43,10 +43,9 @@ export async function GET(request) {
       countQuery += where;
     }
 
-    query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+    query += ` ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}`;
 
     const countParams = [...params];
-    params.push(limit, offset);
 
     const [users] = await pool.execute(query, params);
     const [countResult] = await pool.execute(countQuery, countParams);

@@ -17,7 +17,7 @@ const pool = mysql.createPool({
 // 풀에서 커넥션을 가져와 쿼리 실행하는 헬퍼 (자동 반환)
 export async function query(sql, params = []) {
   const [rows] = await pool.execute(sql, params);
-  return rows;
+  return rows
 }
 
 // 트랜잭션이 필요한 경우 커넥션을 직접 가져오기
@@ -162,6 +162,7 @@ export async function initializeDatabase() {
         user_id INT NOT NULL,
         merchant_uid VARCHAR(100) UNIQUE NOT NULL,
         imp_uid VARCHAR(100),
+        order_name TEXT,
         amount INT NOT NULL,
         payment_method VARCHAR(50),
         status ENUM('pending', 'completed', 'failed', 'refunded') DEFAULT 'pending',
@@ -169,6 +170,8 @@ export async function initializeDatabase() {
         pg_provider VARCHAR(50),
         pg_tid VARCHAR(100),
         card_name VARCHAR(50),
+        fail_reason TEXT,
+        cancel_reason TEXT,
         paid_at TIMESTAMP NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -176,6 +179,26 @@ export async function initializeDatabase() {
         FOREIGN KEY (portfolio_id) REFERENCES portfolios(id) ON DELETE SET NULL
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
+
+    // 기존 스키마 호환: 과거 테이블에 누락된 컬럼 보강
+    const ensurePaymentsColumn = async (columnName, ddl) => {
+      const [rows] = await connection.query(
+        `SELECT COUNT(*) as cnt
+           FROM information_schema.columns
+          WHERE table_schema = DATABASE()
+            AND table_name = 'payments'
+            AND column_name = ?`,
+        [columnName]
+      );
+
+      if ((rows?.[0]?.cnt || 0) === 0) {
+        await connection.query(ddl);
+      }
+    };
+
+    await ensurePaymentsColumn('order_name', 'ALTER TABLE payments ADD COLUMN order_name TEXT');
+    await ensurePaymentsColumn('fail_reason', 'ALTER TABLE payments ADD COLUMN fail_reason TEXT');
+    await ensurePaymentsColumn('cancel_reason', 'ALTER TABLE payments ADD COLUMN cancel_reason TEXT');
 
     // reviews 테이블
     await connection.query(`

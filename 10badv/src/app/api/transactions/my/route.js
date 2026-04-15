@@ -51,8 +51,7 @@ export async function GET(request) {
       countParams.push(status);
     }
 
-    query += ' ORDER BY t.created_at DESC LIMIT ? OFFSET ?';
-    params.push(limit, offset);
+    query += ` ORDER BY t.created_at DESC LIMIT ${limit} OFFSET ${offset}`;
 
     const [[rows], [countResult]] = await Promise.all([
       pool.execute(query, params),

@@ -4,6 +4,7 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import pool from '@/lib/db';
 
 const PORTONE_API_SECRET = process.env.PORTONE_API_SECRET;
+const PORTONE_MOCK_MODE = process.env.PORTONE_MOCK_MODE === 'true' && process.env.NODE_ENV !== 'production';
 
 // 포트원 V2 API로 결제 정보 검증 (V2는 API Secret으로 직접 인증)
 async function verifyPaymentFromPortOne(paymentId) {
@@ -45,9 +46,6 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: '필수 결제 정보가 누락되었습니다.' }, { status: 400 });
     }
 
-    // 포트원 V2 API로 결제 정보 검증
-    const paymentData = await verifyPaymentFromPortOne(actualPaymentId);
-
     // DB에서 결제 정보 조회
     const [payments] = await connection.execute(
       'SELECT * FROM payments WHERE merchant_uid = ? AND user_id = ?',
@@ -61,9 +59,41 @@ export async function POST(request) {
 
     const payment = payments[0];
 
+    // 중복 검증 요청에 대한 멱등 처리
+    if (payment.status === 'completed') {
+      connection.release();
+      return NextResponse.json({
+        success: true,
+        message: '이미 완료된 결제입니다.',
+        payment_id: payment.id,
+      });
+    }
+
+    // 포트원 V2 API 또는 개발용 mock 검증
+    let paymentData;
+    if (PORTONE_MOCK_MODE && actualPaymentId.startsWith('mock_')) {
+      paymentData = {
+        amount: { total: payment.amount },
+        status: 'PAID',
+        pgProvider: 'mock',
+        pgTxId: actualPaymentId,
+        method: { card: { name: 'MockCard' } },
+      };
+    } else {
+      if (!PORTONE_API_SECRET) {
+        connection.release();
+        return NextResponse.json(
+          { success: false, error: 'PORTONE_API_SECRET이 설정되지 않았습니다.' },
+          { status: 500 }
+        );
+      }
+      paymentData = await verifyPaymentFromPortOne(actualPaymentId);
+    }
+
     // 포트원 V2 응답 형식: amount.total (V1은 amount였음)
-    const paidAmount = paymentData.amount?.total ?? paymentData.amount;
-    if (paidAmount !== payment.amount) {
+    const paidAmount = Number(paymentData.amount?.total ?? paymentData.amount);
+    const expectedAmount = Number(payment.amount);
+    if (!Number.isFinite(paidAmount) || paidAmount !== expectedAmount) {
       connection.release();
       return NextResponse.json({ success: false, error: '결제 금액이 일치하지 않습니다.' }, { status: 400 });
     }

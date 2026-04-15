@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { requestPayment } from '@portone/browser-sdk/v2';
 import styles from './payment.module.css';
 
 export default function PaymentForm() {
@@ -17,14 +18,14 @@ export default function PaymentForm() {
   const portfolioId = searchParams.get('portfolio');
   const portfolioTitle = searchParams.get('title');
   const portfolioAmount = searchParams.get('amount');
+  const initialMethod = searchParams.get('method');
+  const isMockMode = process.env.NEXT_PUBLIC_PAYMENT_MOCK_MODE === 'true';
+  const storeId = process.env.NEXT_PUBLIC_PORTONE_STORE_ID;
+  const channelKey = process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY;
 
   const [formData, setFormData] = useState({
-    amount: portfolioAmount || '100000',
-    method: 'card',
-    cardNumber: '',
-    cardExpiry: '',
-    cardCvc: '',
-    holderName: '',
+    amount: portfolioAmount || '1000',
+    method: ['card', 'bank', 'virtual'].includes(initialMethod) ? initialMethod : 'card',
   });
 
   useEffect(() => {
@@ -32,6 +33,12 @@ export default function PaymentForm() {
       setFormData(prev => ({ ...prev, amount: portfolioAmount }));
     }
   }, [portfolioAmount]);
+
+  useEffect(() => {
+    if (['card', 'bank', 'virtual'].includes(initialMethod)) {
+      setFormData(prev => ({ ...prev, method: initialMethod }));
+    }
+  }, [initialMethod]);
 
   const [errors, setErrors] = useState({});
 
@@ -53,26 +60,17 @@ export default function PaymentForm() {
     setFormData(prev => ({ ...prev, method }));
   };
 
+  const toPortOnePayMethod = (method) => {
+    if (method === 'bank') return 'TRANSFER';
+    if (method === 'virtual') return 'VIRTUAL_ACCOUNT';
+    return 'CARD';
+  };
+
   const validateForm = () => {
     const newErrors = {};
 
     if (!formData.amount || parseInt(formData.amount) < 1000) {
       newErrors.amount = '최소 1,000원 이상 입력하세요';
-    }
-
-    if (formData.method === 'card') {
-      if (!formData.cardNumber || formData.cardNumber.length < 16) {
-        newErrors.cardNumber = '카드번호를 정확히 입력하세요';
-      }
-      if (!formData.cardExpiry || formData.cardExpiry.length < 4) {
-        newErrors.cardExpiry = '유효기간을 입력하세요 (MMYY)';
-      }
-      if (!formData.cardCvc || formData.cardCvc.length < 3) {
-        newErrors.cardCvc = 'CVC 번호를 입력하세요';
-      }
-      if (!formData.holderName) {
-        newErrors.holderName = '카드 소유자명을 입력하세요';
-      }
     }
 
     setErrors(newErrors);
@@ -85,55 +83,124 @@ export default function PaymentForm() {
     if (!validateForm()) return;
 
     setLoading(true);
+    setErrors({});
 
     try {
-      // 1. 결제 처리 시뮬레이션
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const amount = parseInt(formData.amount || '0', 10);
+      const orderName = portfolioTitle
+        ? decodeURIComponent(portfolioTitle)
+        : `포인트 ${amount.toLocaleString()}원 충전`;
 
-      // 2. 결제 API 호출
-      const paymentResponse = await fetch('/api/payment', {
+      // 1. 결제 준비 API 호출
+      const paymentResponse = await fetch('/api/payments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...formData,
-          userId: session?.user?.id,
-          userName: session?.user?.name,
+          amount,
+          payment_method: formData.method,
+          order_name: orderName,
+          portfolio_id: portfolioId ? parseInt(portfolioId, 10) : null,
         }),
       });
 
-      if (!paymentResponse.ok) {
-        throw new Error('결제 실패');
+      const paymentData = await paymentResponse.json();
+
+      if (!paymentResponse.ok || !paymentData.success) {
+        throw new Error(paymentData.error || '결제 준비에 실패했습니다.');
+      }
+
+      // 2. 개발/테스트용 mock 결제 검증 또는 실 포트원 결제
+      if (isMockMode) {
+        const verifyResponse = await fetch('/api/payments/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            paymentId: `mock_${paymentData.merchant_uid}`,
+            merchant_uid: paymentData.merchant_uid,
+          }),
+        });
+
+        const verifyData = await verifyResponse.json();
+        if (!verifyResponse.ok || !verifyData.success) {
+          throw new Error(verifyData.error || '결제 검증에 실패했습니다.');
+        }
+      } else {
+        if (!storeId || !channelKey) {
+          throw new Error('포트원 상점/채널 키가 설정되지 않았습니다.');
+        }
+
+        const paymentRequest = {
+          storeId,
+          channelKey,
+          paymentId: paymentData.merchant_uid,
+          orderName,
+          totalAmount: amount,
+          currency: 'KRW',
+          payMethod: toPortOnePayMethod(formData.method),
+        };
+
+        if (typeof window !== 'undefined' && window.innerWidth < 768) {
+          paymentRequest.redirectUrl = `${window.location.origin}/payments/history`;
+        }
+
+        const portOneResult = await requestPayment(paymentRequest);
+
+        if (!portOneResult) {
+          throw new Error('결제창이 닫혔습니다. 다시 시도해주세요.');
+        }
+
+        if (portOneResult.code) {
+          throw new Error(portOneResult.message || '결제가 취소되었거나 실패했습니다.');
+        }
+
+        const verifyResponse = await fetch('/api/payments/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            paymentId: portOneResult.paymentId,
+            merchant_uid: paymentData.merchant_uid,
+          }),
+        });
+
+        const verifyData = await verifyResponse.json();
+        if (!verifyResponse.ok || !verifyData.success) {
+          throw new Error(verifyData.error || '결제 검증에 실패했습니다.');
+        }
       }
 
       // 3. 포트폴리오 구매인 경우 거래 생성
+      let createdTransactionId = null;
       if (portfolioId) {
         const transactionResponse = await fetch('/api/transactions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            portfolio_id: parseInt(portfolioId),
-            amount: parseInt(formData.amount),
+            portfolio_id: parseInt(portfolioId, 10),
+            amount,
             payment_method: formData.method,
           }),
         });
 
         const transactionData = await transactionResponse.json();
-        
-        if (transactionData.success) {
-          setTransactionId(transactionData.transactionId);
+
+        if (!transactionData.success) {
+          throw new Error(transactionData.error || '거래 생성에 실패했습니다.');
         }
+
+        createdTransactionId = transactionData.transactionId;
+        setTransactionId(createdTransactionId);
       }
 
       setSuccess(true);
       setTimeout(() => {
-        if (transactionId) {
-          router.push('/transactions');
+        if (createdTransactionId) {
+          router.push(`/my-transactions/${createdTransactionId}`);
         } else {
           router.push('/dashboard');
         }
       }, 3000);
     } catch (error) {
-      alert('결제 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
+      setErrors({ general: error.message || '결제 처리 중 오류가 발생했습니다. 다시 시도해주세요.' });
       console.error(error);
     } finally {
       setLoading(false);
@@ -210,6 +277,12 @@ export default function PaymentForm() {
           <h1 className={styles.title}>결제하기</h1>
           <p className={styles.subtitle}>안전하고 빠른 결제 시스템</p>
 
+          {errors.general && (
+            <p className={styles.errorText} style={{ marginBottom: '1rem' }}>
+              {errors.general}
+            </p>
+          )}
+
           <form onSubmit={handleSubmit}>
             {/* 결제 금액 */}
             <div className={styles.formGroup}>
@@ -220,7 +293,9 @@ export default function PaymentForm() {
                 value={formData.amount}
                 onChange={handleChange}
                 className={`${styles.input} ${errors.amount ? styles.inputError : ''}`}
-                placeholder="금액을 입력하세요"
+                placeholder="금액을 입력하세요 (최소 1천원)"
+                min="1000"
+                step="1000"
               />
               {errors.amount && <span className={styles.errorText}>{errors.amount}</span>}
             </div>
@@ -243,65 +318,10 @@ export default function PaymentForm() {
               </div>
             </div>
 
-            {/* 카드 결제 폼 */}
             {formData.method === 'card' && (
-              <div className={styles.cardForm}>
-                <div className={styles.formGroup}>
-                  <label className={styles.label}>카드 번호</label>
-                  <input
-                    type="text"
-                    name="cardNumber"
-                    value={formData.cardNumber}
-                    onChange={handleChange}
-                    className={`${styles.input} ${errors.cardNumber ? styles.inputError : ''}`}
-                    placeholder="0000 0000 0000 0000"
-                    maxLength="16"
-                  />
-                  {errors.cardNumber && <span className={styles.errorText}>{errors.cardNumber}</span>}
-                </div>
-
-                <div className={styles.formRow}>
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>유효기간</label>
-                    <input
-                      type="text"
-                      name="cardExpiry"
-                      value={formData.cardExpiry}
-                      onChange={handleChange}
-                      className={`${styles.input} ${errors.cardExpiry ? styles.inputError : ''}`}
-                      placeholder="MMYY"
-                      maxLength="4"
-                    />
-                    {errors.cardExpiry && <span className={styles.errorText}>{errors.cardExpiry}</span>}
-                  </div>
-
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>CVC</label>
-                    <input
-                      type="text"
-                      name="cardCvc"
-                      value={formData.cardCvc}
-                      onChange={handleChange}
-                      className={`${styles.input} ${errors.cardCvc ? styles.inputError : ''}`}
-                      placeholder="123"
-                      maxLength="3"
-                    />
-                    {errors.cardCvc && <span className={styles.errorText}>{errors.cardCvc}</span>}
-                  </div>
-                </div>
-
-                <div className={styles.formGroup}>
-                  <label className={styles.label}>카드 소유자명</label>
-                  <input
-                    type="text"
-                    name="holderName"
-                    value={formData.holderName}
-                    onChange={handleChange}
-                    className={`${styles.input} ${errors.holderName ? styles.inputError : ''}`}
-                    placeholder="홍길동"
-                  />
-                  {errors.holderName && <span className={styles.errorText}>{errors.holderName}</span>}
-                </div>
+              <div className={styles.bankInfo}>
+                <p className={styles.bankText}>📌 카드 결제 안내</p>
+                <p className={styles.bankDetail}>카드 정보는 포트원 결제창에서 안전하게 입력됩니다.</p>
               </div>
             )}
 
