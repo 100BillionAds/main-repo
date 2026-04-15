@@ -68,3 +68,4 @@ src/generated/prisma/
 # ----- Package manager -----
 .pnp
 .pnp.js
+.vercel
