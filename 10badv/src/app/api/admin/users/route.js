@@ -22,7 +22,7 @@ export async function GET(request) {
     const search = searchParams.get('search');
     const offset = (page - 1) * limit;
 
-    let query = 'SELECT id, username, email, role, phone, bio, avatar_url, status, points, created_at FROM users';
+    let query = 'SELECT id, username, name, email, role, phone, bio, avatar_url, status, points, created_at FROM users';
     let countQuery = 'SELECT COUNT(*) as total FROM users';
     const conditions = [];
     const params = [];
@@ -33,8 +33,8 @@ export async function GET(request) {
     }
 
     if (search) {
-      conditions.push('(username LIKE ? OR email LIKE ?)');
-      params.push(`%${search}%`, `%${search}%`);
+      conditions.push('(username LIKE ? OR name LIKE ? OR email LIKE ?)');
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
     }
 
     if (conditions.length > 0) {
@@ -78,7 +78,10 @@ export async function PATCH(request) {
       return NextResponse.json({ success: false, error: '관리자 권한이 필요합니다.' }, { status: 403 });
     }
 
-    const { userId, role, status } = await request.json();
+    const body = await request.json();
+    const userId = body.userId;
+    const role = body.role ?? body.updates?.role;
+    const rawStatus = body.status ?? body.updates?.status;
 
     if (!userId) {
       return NextResponse.json({ success: false, error: '사용자 ID가 필요합니다.' }, { status: 400 });
@@ -96,13 +99,16 @@ export async function PATCH(request) {
       params.push(role);
     }
 
-    if (status) {
-      const validStatuses = ['active', 'suspended', 'banned'];
-      if (!validStatuses.includes(status)) {
+    if (rawStatus) {
+      const normalizedStatus = rawStatus === 'blacklisted' || rawStatus === 'banned'
+        ? 'suspended'
+        : rawStatus;
+      const validStatuses = ['active', 'suspended', 'deleted'];
+      if (!validStatuses.includes(normalizedStatus)) {
         return NextResponse.json({ success: false, error: '유효하지 않은 상태입니다.' }, { status: 400 });
       }
       fields.push('status = ?');
-      params.push(status);
+      params.push(normalizedStatus);
     }
 
     if (fields.length === 0) {
@@ -120,5 +126,31 @@ export async function PATCH(request) {
   } catch (error) {
     console.error('사용자 업데이트 실패:', error);
     return NextResponse.json({ success: false, error: '사용자 업데이트에 실패했습니다.' }, { status: 500 });
+  }
+}
+
+// DELETE: 사용자 소프트 삭제 (관리자 전용)
+export async function DELETE(request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ success: false, error: '로그인이 필요합니다.' }, { status: 401 });
+    }
+
+    if (session.user.role !== 'admin') {
+      return NextResponse.json({ success: false, error: '관리자 권한이 필요합니다.' }, { status: 403 });
+    }
+
+    const { userId } = await request.json();
+    if (!userId) {
+      return NextResponse.json({ success: false, error: '사용자 ID가 필요합니다.' }, { status: 400 });
+    }
+
+    await pool.execute('UPDATE users SET status = ? WHERE id = ?', ['deleted', userId]);
+
+    return NextResponse.json({ success: true, message: '사용자가 삭제 처리되었습니다.' });
+  } catch (error) {
+    console.error('사용자 삭제 처리 실패:', error);
+    return NextResponse.json({ success: false, error: '사용자 삭제 처리에 실패했습니다.' }, { status: 500 });
   }
 }
