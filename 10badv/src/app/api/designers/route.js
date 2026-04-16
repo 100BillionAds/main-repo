@@ -36,10 +36,9 @@ export async function GET(request) {
       params.push(`%${specialty}%`);
     }
 
-    query += ' GROUP BY u.id';
+    query += ' GROUP BY u.id, u.name, u.username, u.email, u.role, u.avatar_url, u.bio, u.created_at, u.rating, u.review_count, t.completed_works, t.total_transactions';
     query += ' ORDER BY u.rating DESC, completed_works DESC';
-    query += ' LIMIT ? OFFSET ?';
-    params.push(limit, offset);
+    query += ` LIMIT ${limit} OFFSET ${offset}`;
 
     const [designers] = await pool.execute(query, params);
 

@@ -5,6 +5,10 @@ const CLOSED_BETA_FLAG = (
 const REQUIRED_DATABASE_ENV = ['DATABASE_HOST', 'DATABASE_USER', 'DATABASE_NAME'];
 
 function isDatabaseEnvMissing() {
+  if (process.env.DATABASE_URL) {
+    return false;
+  }
+
   return REQUIRED_DATABASE_ENV.some((key) => !process.env[key]);
 }
 

@@ -2,18 +2,8 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import pool from '@/lib/db';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { v4 as uuidv4 } from 'uuid';
-
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION || 'ap-northeast-2',
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  },
-});
-
-const BUCKET_NAME = process.env.AWS_S3_BUCKET || '10badv';
+import { uploadObject } from '@/lib/storage';
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 export async function POST(request) {
@@ -52,17 +42,11 @@ export async function POST(request) {
 
     const ext = file.name.split('.').pop();
     const fileName = `chat/${roomId}/${uuidv4()}.${ext}`;
-
-    const command = new PutObjectCommand({
-      Bucket: BUCKET_NAME,
-      Key: fileName,
-      Body: buffer,
-      ContentType: file.type,
+    const fileUrl = await uploadObject({
+      buffer,
+      objectKey: fileName,
+      contentType: file.type,
     });
-
-    await s3Client.send(command);
-
-    const fileUrl = `https://${BUCKET_NAME}.s3.${process.env.AWS_REGION || 'ap-northeast-2'}.amazonaws.com/${fileName}`;
 
     // 파일 메시지 저장
     const [result] = await pool.execute(
@@ -84,6 +68,18 @@ export async function POST(request) {
     });
   } catch (error) {
     console.error('파일 업로드 실패:', error);
+
+    if (
+      error?.code === 'STORAGE_NOT_CONFIGURED'
+      || error?.code === 'STORAGE_PROVIDER_MISCONFIGURED'
+      || error?.code === 'STORAGE_PROVIDER_UNSUPPORTED'
+    ) {
+      return NextResponse.json(
+        { success: false, error: '파일 스토리지 설정이 필요합니다. 무료 모드는 CLOUDINARY_* 환경변수를 설정해주세요.' },
+        { status: 503 }
+      );
+    }
+
     return NextResponse.json({ success: false, error: '파일 업로드에 실패했습니다.' }, { status: 500 });
   }
 }

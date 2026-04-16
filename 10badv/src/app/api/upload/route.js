@@ -1,20 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { v4 as uuidv4 } from 'uuid';
 import { checkRateLimit } from '@/lib/rateLimit';
-
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION || 'ap-northeast-2',
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  },
-});
-
-const BUCKET_NAME = process.env.AWS_S3_BUCKET || '10badv';
-const S3_BASE_URL = `https://${BUCKET_NAME}.s3.${process.env.AWS_REGION || 'ap-northeast-2'}.amazonaws.com`;
+import { uploadObject } from '@/lib/storage';
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
 
@@ -67,15 +56,11 @@ export async function POST(request) {
 
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
-
-      await s3Client.send(new PutObjectCommand({
-        Bucket: BUCKET_NAME,
-        Key: key,
-        Body: buffer,
-        ContentType: file.type,
-      }));
-
-      const fileUrl = `${S3_BASE_URL}/${key}`;
+      const fileUrl = await uploadObject({
+        buffer,
+        objectKey: key,
+        contentType: file.type,
+      });
 
       return NextResponse.json({
         success: true,
@@ -114,15 +99,13 @@ export async function POST(request) {
 
         const bytes = await f.arrayBuffer();
         const buffer = Buffer.from(bytes);
+        const uploadedUrl = await uploadObject({
+          buffer,
+          objectKey: key,
+          contentType: f.type,
+        });
 
-        await s3Client.send(new PutObjectCommand({
-          Bucket: BUCKET_NAME,
-          Key: key,
-          Body: buffer,
-          ContentType: f.type,
-        }));
-
-        uploadedUrls.push(`${S3_BASE_URL}/${key}`);
+        uploadedUrls.push(uploadedUrl);
       }
 
       return NextResponse.json({
@@ -135,6 +118,18 @@ export async function POST(request) {
     return NextResponse.json({ success: false, error: '업로드할 파일이 없습니다.' }, { status: 400 });
   } catch (error) {
     console.error('파일 업로드 실패:', error);
+
+    if (
+      error?.code === 'STORAGE_NOT_CONFIGURED'
+      || error?.code === 'STORAGE_PROVIDER_MISCONFIGURED'
+      || error?.code === 'STORAGE_PROVIDER_UNSUPPORTED'
+    ) {
+      return NextResponse.json(
+        { success: false, error: '파일 스토리지 설정이 필요합니다. 무료 모드는 CLOUDINARY_* 환경변수를 설정해주세요.' },
+        { status: 503 }
+      );
+    }
+
     return NextResponse.json({ success: false, error: '파일 업로드에 실패했습니다.' }, { status: 500 });
   }
 }

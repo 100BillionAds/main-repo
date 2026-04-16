@@ -1,18 +1,83 @@
 import mysql from 'mysql2/promise';
 
+function toBoolean(value, fallback = false) {
+  if (value === undefined || value === null || value === '') {
+    return fallback;
+  }
+
+  return value === true || value === 'true' || value === '1';
+}
+
+function buildSslConfig() {
+  const sslEnabled = toBoolean(process.env.DATABASE_SSL, false);
+  if (!sslEnabled) {
+    return undefined;
+  }
+
+  const sslConfig = {
+    rejectUnauthorized: toBoolean(process.env.DATABASE_SSL_REJECT_UNAUTHORIZED, true)
+  };
+
+  if (process.env.DATABASE_SSL_CA) {
+    sslConfig.ca = process.env.DATABASE_SSL_CA;
+  }
+
+  return sslConfig;
+}
+
+function buildDatabaseConfig() {
+  const ssl = buildSslConfig();
+
+  const baseConfig = {
+    waitForConnections: true,
+    connectionLimit: 20,
+    queueLimit: 0,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 0
+  };
+
+  if (process.env.DATABASE_URL) {
+    const databaseUrl = new URL(process.env.DATABASE_URL);
+    const databaseNameFromUrl = (databaseUrl.pathname || '').replace(/^\/+/, '');
+
+    const configFromUrl = {
+      host: databaseUrl.hostname || process.env.DATABASE_HOST || 'localhost',
+      port: Number(databaseUrl.port || process.env.DATABASE_PORT || 3306),
+      user: decodeURIComponent(databaseUrl.username || process.env.DATABASE_USER || 'root'),
+      password: decodeURIComponent(databaseUrl.password || process.env.DATABASE_PASSWORD || ''),
+      database: databaseNameFromUrl || process.env.DATABASE_NAME || '10badv'
+    };
+
+    if (ssl) {
+      configFromUrl.ssl = ssl;
+    }
+
+    return {
+      ...baseConfig,
+      ...configFromUrl
+    };
+  }
+
+  const configFromDiscreteEnv = {
+    host: process.env.DATABASE_HOST || 'localhost',
+    port: Number(process.env.DATABASE_PORT || 3306),
+    user: process.env.DATABASE_USER || 'root',
+    password: process.env.DATABASE_PASSWORD || '',
+    database: process.env.DATABASE_NAME || '10badv'
+  };
+
+  if (ssl) {
+    configFromDiscreteEnv.ssl = ssl;
+  }
+
+  return {
+    ...baseConfig,
+    ...configFromDiscreteEnv
+  };
+}
+
 // MySQL 연결 풀 생성 (환경변수 사용)
-const pool = mysql.createPool({
-  host: process.env.DATABASE_HOST || 'localhost',
-  port: Number(process.env.DATABASE_PORT || 3306),
-  user: process.env.DATABASE_USER || 'root',
-  password: process.env.DATABASE_PASSWORD || '',
-  database: process.env.DATABASE_NAME || '10badv',
-  waitForConnections: true,
-  connectionLimit: 20,
-  queueLimit: 0,
-  enableKeepAlive: true,
-  keepAliveInitialDelay: 0
-});
+const pool = mysql.createPool(buildDatabaseConfig());
 
 // 풀에서 커넥션을 가져와 쿼리 실행하는 헬퍼 (자동 반환)
 export async function query(sql, params = []) {
@@ -374,6 +439,17 @@ export async function getAllUsers() {
   } catch (error) {
     console.error('사용자 목록 조회 오류:', error);
     return [];
+  }
+}
+
+// 테스트/스크립트 종료 시 커넥션 풀 정리
+export async function closeDatabasePool() {
+  try {
+    await pool.end();
+    return true;
+  } catch (error) {
+    console.error('DB 풀 종료 오류:', error);
+    return false;
   }
 }
 

@@ -13,6 +13,7 @@ const PROPOSAL_DETAIL_PATH = '@/app/api/proposals/[id]/route';
 const TRANSACTION_DETAIL_PATH = '@/app/api/transactions/[id]/route';
 
 const TEST_SUFFIX = Date.now().toString();
+const loadedDbModules = new Set();
 
 async function loadModules() {
   let registerModule;
@@ -30,6 +31,8 @@ async function loadModules() {
     transactionDetailModule = await import(TRANSACTION_DETAIL_PATH);
     dbModule = await import('@/lib/db');
   });
+
+  loadedDbModules.add(dbModule);
 
   return {
     registerModule,
@@ -67,6 +70,14 @@ describe('Buyer-Designer integration flow', () => {
 
   afterEach(() => {
     getServerSession.mockReset();
+  });
+
+  afterAll(async () => {
+    for (const dbModule of loadedDbModules) {
+      if (typeof dbModule.closeDatabasePool === 'function') {
+        await dbModule.closeDatabasePool();
+      }
+    }
   });
 
   it('completes request -> proposal -> transaction -> payout flow', async () => {
