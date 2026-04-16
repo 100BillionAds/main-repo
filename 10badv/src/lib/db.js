@@ -442,4 +442,15 @@ export async function getAllUsers() {
   }
 }
 
+// 테스트/스크립트 종료 시 커넥션 풀 정리
+export async function closeDatabasePool() {
+  try {
+    await pool.end();
+    return true;
+  } catch (error) {
+    console.error('DB 풀 종료 오류:', error);
+    return false;
+  }
+}
+
 export default pool;
