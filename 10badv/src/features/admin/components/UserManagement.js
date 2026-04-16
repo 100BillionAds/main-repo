@@ -16,12 +16,21 @@ export default function UserManagement() {
     fetchUsers();
   }, []);
 
+  const getUserDisplayName = (user) => {
+    return user?.name || user?.username || '이름없음';
+  };
+
+  const normalizeStatus = (status) => {
+    if (status === 'blacklisted' || status === 'banned') return 'suspended';
+    return status || 'active';
+  };
+
   const fetchUsers = async () => {
     try {
       const response = await fetch('/api/admin/users');
       if (response.ok) {
         const data = await response.json();
-        setUsers(data.users);
+        setUsers(Array.isArray(data.users) ? data.users : []);
       }
     } catch (error) {
       console.error('사용자 목록 로딩 실패:', error);
@@ -39,10 +48,13 @@ export default function UserManagement() {
     // 검색어 필터
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
+      const username = (user.username || '').toLowerCase();
+      const name = (user.name || '').toLowerCase();
+      const email = (user.email || '').toLowerCase();
       return (
-        user.username.toLowerCase().includes(searchLower) ||
-        user.name.toLowerCase().includes(searchLower) ||
-        (user.email && user.email.toLowerCase().includes(searchLower))
+        username.includes(searchLower) ||
+        name.includes(searchLower) ||
+        email.includes(searchLower)
       );
     }
     
@@ -50,8 +62,10 @@ export default function UserManagement() {
   });
 
   const handleUserAction = async (user, action) => {
+    const displayName = getUserDisplayName(user);
+
     if (action === '삭제') {
-      if (!confirm(`정말 ${user.name}님을 삭제하시겠습니까?`)) return;
+      if (!confirm(`정말 ${displayName}님을 삭제하시겠습니까?`)) return;
       
       try {
         const response = await fetch('/api/admin/users', {
@@ -68,13 +82,13 @@ export default function UserManagement() {
         alert('삭제 중 오류가 발생했습니다');
       }
     } else if (action === '블랙리스트 추가') {
-      if (!confirm(`${user.name}님을 블랙리스트에 추가하시겠습니까?`)) return;
+      if (!confirm(`${displayName}님을 블랙리스트에 추가하시겠습니까?`)) return;
       
       try {
         const response = await fetch('/api/admin/users', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.id, updates: { status: 'blacklisted' } }),
+          body: JSON.stringify({ userId: user.id, status: 'suspended' }),
         });
 
         if (response.ok) {
@@ -89,7 +103,7 @@ export default function UserManagement() {
         const response = await fetch('/api/admin/users', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.id, updates: { status: 'active' } }),
+          body: JSON.stringify({ userId: user.id, status: 'active' }),
         });
 
         if (response.ok) {
@@ -98,6 +112,21 @@ export default function UserManagement() {
         }
       } catch (error) {
         alert('블랙리스트 해제 중 오류가 발생했습니다');
+      }
+    } else if (action === '계정 해제') {
+      try {
+        const response = await fetch('/api/admin/users', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id, status: 'active' }),
+        });
+
+        if (response.ok) {
+          alert('계정 정지가 해제되었습니다');
+          fetchUsers();
+        }
+      } catch (error) {
+        alert('계정 해제 중 오류가 발생했습니다');
       }
     } else {
       setSelectedUser({ ...user, action });
@@ -109,7 +138,7 @@ export default function UserManagement() {
     try {
       const updates = {};
       
-      if (selectedUser.action === '관리자 승급') {
+      if (selectedUser.action === '관리자로 승격') {
         updates.role = 'admin';
       } else if (selectedUser.action === '디자이너 전환') {
         updates.role = 'designer';
@@ -120,7 +149,7 @@ export default function UserManagement() {
       const response = await fetch('/api/admin/users', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: selectedUser.id, updates }),
+        body: JSON.stringify({ userId: selectedUser.id, ...updates }),
       });
 
       if (response.ok) {
@@ -222,16 +251,20 @@ export default function UserManagement() {
             </tr>
           </thead>
           <tbody>
-            {filteredUsers.map((user) => (
+            {filteredUsers.map((user) => {
+              const displayName = getUserDisplayName(user);
+              const normalizedStatus = normalizeStatus(user.status);
+
+              return (
               <tr key={user.id}>
                 <td>
                   <div className={styles.userInfo}>
                     <div className={styles.userAvatar}>
-                      {user.name.charAt(0)}
+                      {displayName.charAt(0)}
                     </div>
                     <div className={styles.userDetails}>
-                      <div className={styles.userName}>{user.name}</div>
-                      <div className={styles.userUsername}>@{user.username}</div>
+                      <div className={styles.userName}>{displayName}</div>
+                      <div className={styles.userUsername}>@{user.username || 'unknown'}</div>
                       <div className={styles.userEmail}>{user.email || '미등록'}</div>
                     </div>
                   </div>
@@ -249,12 +282,12 @@ export default function UserManagement() {
                 </td>
                 <td>
                   <span className={`${styles.badge} ${
-                    user.status === 'blacklisted' ? styles.badgeBlacklisted :
-                    user.status === 'banned' ? styles.badgeBanned :
+                    normalizedStatus === 'suspended' ? styles.badgeBlacklisted :
+                    normalizedStatus === 'deleted' ? styles.badgeBanned :
                     styles.badgeActive
                   }`}>
-                    {user.status === 'blacklisted' ? '🚫 블랙리스트' :
-                     user.status === 'banned' ? '⛔ 정지' :
+                    {normalizedStatus === 'suspended' ? '🚫 정지' :
+                     normalizedStatus === 'deleted' ? '🗑️ 삭제됨' :
                      '🟢 활성'}
                   </span>
                 </td>
@@ -265,7 +298,7 @@ export default function UserManagement() {
                 <td className={styles.numberCell}>{user.transaction_count || 0}</td>
                 <td>
                   <div className={styles.actions}>
-                    {user.status !== 'blacklisted' && user.status !== 'banned' && (
+                    {normalizedStatus !== 'suspended' && normalizedStatus !== 'deleted' && (
                       <>
                         {user.role !== 'admin' && (
                           <button
@@ -285,7 +318,7 @@ export default function UserManagement() {
                         </button>
                       </>
                     )}
-                    {user.status === 'blacklisted' && (
+                    {normalizedStatus === 'suspended' && (
                       <button
                         onClick={() => handleUserAction(user, '블랙리스트 해제')}
                         className={`${styles.actionButton} ${styles.actionUnban}`}
@@ -294,19 +327,11 @@ export default function UserManagement() {
                         ✅
                       </button>
                     )}
-                    {user.status === 'banned' && (
-                      <button
-                        onClick={() => handleUserAction(user, '계정 해제')}
-                        className={`${styles.actionButton} ${styles.actionUnban}`}
-                        title="정지 해제"
-                      >
-                        ✅
-                      </button>
-                    )}
                   </div>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -325,7 +350,7 @@ export default function UserManagement() {
           <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
             <h3 className={styles.modalTitle}>작업 확인</h3>
             <p className={styles.modalMessage}>
-              <strong>{selectedUser.name}</strong> 회원에게<br />
+              <strong>{getUserDisplayName(selectedUser)}</strong> 회원에게<br />
               <strong>{selectedUser.action}</strong> 작업을 실행하시겠습니까?
             </p>
             <div className={styles.modalActions}>
