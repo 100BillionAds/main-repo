@@ -11,7 +11,7 @@
 ```env
 CLOSED_BETA_MODE=true
 NEXT_PUBLIC_CLOSED_BETA_MODE=true
-# DATABASE_HOST / DATABASE_USER / DATABASE_NAME 미설정 상태 유지
+# DATABASE_URL 또는 DATABASE_HOST / DATABASE_USER / DATABASE_NAME 미설정 상태 유지
 ```
 
 - 프로덕션에서 회원가입/결제/쓰기 API(POST/PUT/PATCH/DELETE)가 자동 차단됩니다.
@@ -34,15 +34,20 @@ cp .env.example .env.local
 
 ```env
 # Database
-DATABASE_HOST=localhost
-DATABASE_PORT=3306
-DATABASE_USER=root
-DATABASE_PASSWORD=your_password
-DATABASE_NAME=10badv
+DATABASE_URL=mysql://root:your_password@localhost:3306/10badv
+DATABASE_SSL=false
+DATABASE_SSL_REJECT_UNAUTHORIZED=true
+# (대안) DATABASE_HOST / DATABASE_PORT / DATABASE_USER / DATABASE_PASSWORD / DATABASE_NAME
 
 # NextAuth
 NEXTAUTH_URL=http://localhost:3000
 NEXTAUTH_SECRET=your_secret_key_here
+
+# Storage (free tier recommended)
+STORAGE_PROVIDER=cloudinary
+CLOUDINARY_CLOUD_NAME=your-cloud-name
+CLOUDINARY_API_KEY=your-cloudinary-api-key
+CLOUDINARY_API_SECRET=your-cloudinary-api-secret
 
 # PortOne (선택)
 NEXT_PUBLIC_PORTONE_STORE_ID=your_store_id

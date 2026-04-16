@@ -12,19 +12,84 @@ const port = parseInt(process.env.PORT || '3000', 10);
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
+function toBoolean(value, fallback = false) {
+  if (value === undefined || value === null || value === '') {
+    return fallback;
+  }
+
+  return value === true || value === 'true' || value === '1';
+}
+
+function buildSslConfig() {
+  const sslEnabled = toBoolean(process.env.DATABASE_SSL, false);
+  if (!sslEnabled) {
+    return undefined;
+  }
+
+  const sslConfig = {
+    rejectUnauthorized: toBoolean(process.env.DATABASE_SSL_REJECT_UNAUTHORIZED, true)
+  };
+
+  if (process.env.DATABASE_SSL_CA) {
+    sslConfig.ca = process.env.DATABASE_SSL_CA;
+  }
+
+  return sslConfig;
+}
+
+function buildDatabaseConfig() {
+  const ssl = buildSslConfig();
+
+  const baseConfig = {
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 0
+  };
+
+  if (process.env.DATABASE_URL) {
+    const databaseUrl = new URL(process.env.DATABASE_URL);
+    const databaseNameFromUrl = (databaseUrl.pathname || '').replace(/^\/+/, '');
+
+    const configFromUrl = {
+      host: databaseUrl.hostname || process.env.DATABASE_HOST || 'localhost',
+      port: parseInt(databaseUrl.port || process.env.DATABASE_PORT || '3306', 10),
+      user: decodeURIComponent(databaseUrl.username || process.env.DATABASE_USER || 'root'),
+      password: decodeURIComponent(databaseUrl.password || process.env.DATABASE_PASSWORD || ''),
+      database: databaseNameFromUrl || process.env.DATABASE_NAME || '10badv'
+    };
+
+    if (ssl) {
+      configFromUrl.ssl = ssl;
+    }
+
+    return {
+      ...baseConfig,
+      ...configFromUrl
+    };
+  }
+
+  const configFromDiscreteEnv = {
+    host: process.env.DATABASE_HOST || 'localhost',
+    port: parseInt(process.env.DATABASE_PORT || '3306', 10),
+    user: process.env.DATABASE_USER || 'root',
+    password: process.env.DATABASE_PASSWORD || '',
+    database: process.env.DATABASE_NAME || '10badv'
+  };
+
+  if (ssl) {
+    configFromDiscreteEnv.ssl = ssl;
+  }
+
+  return {
+    ...baseConfig,
+    ...configFromDiscreteEnv
+  };
+}
+
 // MySQL 풀 설정 (db.js와 동일한 설정 — server.js는 CommonJS이므로 별도 풀 필요)
-const dbPool = mysql.createPool({
-  host: process.env.DATABASE_HOST || 'localhost',
-  port: parseInt(process.env.DATABASE_PORT || '3306', 10),
-  user: process.env.DATABASE_USER || 'root',
-  password: process.env.DATABASE_PASSWORD || '',
-  database: process.env.DATABASE_NAME || '10badv',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  enableKeepAlive: true,
-  keepAliveInitialDelay: 0
-});
+const dbPool = mysql.createPool(buildDatabaseConfig());
 
 app.prepare().then(() => {
   const httpServer = createServer(async (req, res) => {

@@ -89,3 +89,4 @@ coverage/
 
 # ----- Generated -----
 **/generated/prisma
+.vercel

@@ -30,15 +30,14 @@ export async function GET(request) {
       query += ' WHERE ' + conditions.join(' AND ');
     }
 
-    query += ' ORDER BY p.created_at DESC LIMIT ? OFFSET ?';
-    params.push(limit, offset);
+    query += ` ORDER BY p.created_at DESC LIMIT ${limit} OFFSET ${offset}`;
 
     // 데이터 + 총 개수 병렬 조회
     let countQuery = 'SELECT COUNT(*) as total FROM portfolios p';
     if (conditions.length > 0) {
       countQuery += ' WHERE ' + conditions.join(' AND ');
     }
-    const countParams = params.slice(0, params.length - 2); // limit, offset 제외
+    const countParams = [...params];
 
     const [[portfolios], [countResult]] = await Promise.all([
       pool.execute(query, params),
