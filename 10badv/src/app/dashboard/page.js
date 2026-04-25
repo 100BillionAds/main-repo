@@ -7,16 +7,18 @@ import Link from 'next/link';
 import Image from 'next/image';
 import styles from './dashboard.module.css';
 
+const DEFAULT_STATS = {
+  totalUsers: 0,
+  totalPortfolios: 0,
+  totalTransactions: 0,
+  completedTransactions: 0,
+  recentUsers: [],
+};
+
 export default function Dashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [stats, setStats] = useState({
-    totalUsers: 0,
-    totalPortfolios: 156,
-    totalTransactions: 89,
-    completedTransactions: 67,
-    recentUsers: [],
-  });
+  const [stats, setStats] = useState(DEFAULT_STATS);
   const [userPoints, setUserPoints] = useState(0);
   const [recentTransactions, setRecentTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,6 +33,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (session && session.user?.role === 'admin') {
       fetchStats();
+      fetchUserPoints();
     } else if (session) {
       // 일반 사용자는 자신의 거래 내역만 조회
       fetchMyTransactions();
@@ -73,7 +76,7 @@ export default function Dashboard() {
       const response = await fetch('/api/dashboard/stats');
       if (response.ok) {
         const data = await response.json();
-        setStats(data);
+        setStats(data?.stats || DEFAULT_STATS);
       }
     } catch (error) {
       console.error('통계 데이터 로딩 실패:', error);
@@ -98,6 +101,7 @@ export default function Dashboard() {
   const userRole = session.user?.role;
   const isAdmin = userRole === 'admin';
   const isDesigner = userRole === 'designer';
+  const recentUsers = Array.isArray(stats.recentUsers) ? stats.recentUsers : [];
 
   // 관리자 대시보드
   if (isAdmin) {
@@ -160,7 +164,7 @@ export default function Dashboard() {
               <div className={styles.statLabel}>총 포트폴리오</div>
               <div className={styles.statValue}>{stats.totalPortfolios}</div>
               <div className={styles.statChange}>
-                <span className={styles.changeNeutral}>샘플 데이터</span>
+                <span className={styles.changeNeutral}>실제 데이터</span>
               </div>
             </div>
           </div>
@@ -171,7 +175,7 @@ export default function Dashboard() {
               <div className={styles.statLabel}>총 거래 건수</div>
               <div className={styles.statValue}>{stats.totalTransactions}</div>
               <div className={styles.statChange}>
-                <span className={styles.changeNeutral}>샘플 데이터</span>
+                <span className={styles.changeNeutral}>실제 데이터</span>
               </div>
             </div>
           </div>
@@ -182,7 +186,7 @@ export default function Dashboard() {
               <div className={styles.statLabel}>완료된 거래</div>
               <div className={styles.statValue}>{stats.completedTransactions}</div>
               <div className={styles.statChange}>
-                <span className={styles.changeNeutral}>샘플 데이터</span>
+                <span className={styles.changeNeutral}>실제 데이터</span>
               </div>
             </div>
           </div>
@@ -193,13 +197,13 @@ export default function Dashboard() {
             <h2 className={styles.sectionTitle}>📊 최근 가입 사용자 (실제 데이터)</h2>
           </div>
           <div className={styles.activityList}>
-            {stats.recentUsers.length === 0 ? (
+            {recentUsers.length === 0 ? (
               <div className={styles.emptyState}>
                 <div className={styles.emptyIcon}>👥</div>
                 <p>아직 가입한 사용자가 없습니다</p>
               </div>
             ) : (
-              stats.recentUsers.map((user) => (
+              recentUsers.map((user) => (
                 <div key={user.id} className={styles.activityItem}>
                   <div className={`${styles.activityIcon} ${
                     user.role === 'admin' ? styles.activityIconPurple :
@@ -212,7 +216,7 @@ export default function Dashboard() {
                     <div className={styles.activityTitle}>{user.name} ({user.username})</div>
                     <div className={styles.activityDescription}>{user.email || '이메일 미등록'}</div>
                     <div className={styles.activityTime}>
-                      {new Date(user.createdAt).toLocaleDateString('ko-KR')} 가입
+                        {new Date(user.created_at).toLocaleDateString('ko-KR')} 가입
                     </div>
                   </div>
                   <span className={`${styles.badge} ${
