@@ -24,8 +24,8 @@ export async function GET(request) {
     if (status) { query += ' AND r.status = ?'; params.push(status); }
     if (clientId) { query += ' AND r.client_id = ?'; params.push(clientId); }
 
-    query += ' ORDER BY r.created_at DESC LIMIT ? OFFSET ?';
-    params.push(limit, offset);
+    // LIMIT/OFFSET는 일부 MySQL 호환 환경에서 바인딩 오류가 발생할 수 있어 안전한 정수 리터럴로 주입
+    query += ` ORDER BY r.created_at DESC LIMIT ${limit} OFFSET ${offset}`;
 
     const [rows] = await pool.execute(query, params);
 
