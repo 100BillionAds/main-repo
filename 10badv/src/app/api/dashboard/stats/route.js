@@ -34,7 +34,7 @@ export async function GET() {
         pool.execute('SELECT COUNT(*) as count FROM transactions'),
         pool.execute("SELECT COUNT(*) as count FROM portfolios WHERE status = 'pending'"),
         pool.execute("SELECT COUNT(*) as count FROM transactions WHERE status = 'completed'"),
-        pool.execute("SELECT COALESCE(SUM(commission_amount), 0) as total FROM transactions WHERE status = 'completed'"),
+        pool.execute("SELECT COALESCE(SUM(commission), 0) as total FROM transactions WHERE status = 'completed'"),
         pool.execute('SELECT COUNT(*) as count FROM requests')
       ]);
 
@@ -54,11 +54,11 @@ export async function GET() {
                  buyer.username as buyer_name, seller.username as seller_name
           FROM transactions t
           LEFT JOIN users buyer ON t.buyer_id = buyer.id
-          LEFT JOIN users seller ON t.seller_id = seller.id
+          LEFT JOIN users seller ON t.designer_id = seller.id
           ORDER BY t.created_at DESC LIMIT 5
         `),
         pool.execute(
-          'SELECT id, username, email, role, created_at FROM users ORDER BY created_at DESC LIMIT 5'
+          'SELECT id, name, username, email, role, created_at FROM users ORDER BY created_at DESC LIMIT 5'
         )
       ]);
       stats.recentTransactions = recentTransactions;
@@ -72,11 +72,11 @@ export async function GET() {
         [myRequests]
       ] = await Promise.all([
         pool.execute(
-          'SELECT COUNT(*) as count FROM transactions WHERE buyer_id = ? OR seller_id = ?',
+          'SELECT COUNT(*) as count FROM transactions WHERE buyer_id = ? OR designer_id = ?',
           [userId, userId]
         ),
         pool.execute(
-          "SELECT COUNT(*) as count FROM transactions WHERE (buyer_id = ? OR seller_id = ?) AND status = 'completed'",
+          "SELECT COUNT(*) as count FROM transactions WHERE (buyer_id = ? OR designer_id = ?) AND status = 'completed'",
           [userId, userId]
         ),
         pool.execute(
@@ -109,7 +109,7 @@ export async function GET() {
             [userId]
           ),
           pool.execute(
-            "SELECT COALESCE(SUM(amount - commission_amount), 0) as total FROM transactions WHERE seller_id = ? AND status = 'completed'",
+            "SELECT COALESCE(SUM(amount - commission), 0) as total FROM transactions WHERE designer_id = ? AND status = 'completed'",
             [userId]
           )
         ]);
