@@ -1,260 +1,154 @@
-# 10badv Deployment Guide
+# 배포 가이드
 
-이 문서는 10badv 애플리케이션을 다양한 플랫폼에 배포하는 방법을 설명합니다.
+이 서비스는 커스텀 서버(`server.js`)가 Next.js, Socket.io 채팅, 에스크로 자동정산 스케줄러를 한 프로세스에서 실행합니다. 그래서 **Docker 로 서버 한 대에 올리는 방식을 권장**합니다. Vercel 은 화면과 API 는 되지만 실시간 채팅(WebSocket)이 되지 않습니다.
 
-## 🚀 Vercel + 무료 스택 배포 (권장)
+| 방식 | 채팅 | 자동정산 | 비용 |
+|------|------|----------|------|
+| Docker + 서버 한 대 (권장) | 됨 | 내장 스케줄러, 10분 주기 | 서버 비용 (무료 티어 가능) |
+| Vercel | 안 됨 (별도 소켓 서버 필요) | Vercel Cron, 하루 1회 | 무료부터 |
 
-Vercel은 Next.js 애플리케이션을 배포하기에 가장 적합한 플랫폼입니다.
-
-### 1. Vercel CLI 설치
-
-```bash
-npm i -g vercel
-```
-
-### 2. Vercel 로그인
-
-```bash
-vercel login
-```
-
-### 3. 프로젝트 배포
+## 1. 로컬에서 Docker 로 실행
 
 ```bash
 cd 10badv
-vercel
+cp .env.example .env.local     # 값 수정 (아래 "환경변수" 참고)
+docker compose up --build
+# http://localhost:3000
 ```
 
-### 4. 환경 변수 설정
+앱 컨테이너와 MySQL 컨테이너가 함께 뜹니다. 테이블은 앱이 시작될 때 자동으로 만들어집니다.
 
-Vercel 대시보드에서 다음 환경 변수를 설정하세요:
+## 2. 서버 배포 (Docker + GHCR + Caddy)
 
-- `DATABASE_URL` 또는 `DATABASE_HOST/PORT/USER/PASSWORD/NAME`
-- `DATABASE_SSL=true`
-- `DATABASE_SSL_REJECT_UNAUTHORIZED=true`
-- `NEXTAUTH_SECRET`
-- `NEXTAUTH_URL`
-- `STORAGE_PROVIDER=cloudinary`
-- `CLOUDINARY_CLOUD_NAME`
-- `CLOUDINARY_API_KEY`
-- `CLOUDINARY_API_SECRET`
-- 기타 필요한 환경 변수
+구성: GitHub Actions 가 이미지를 만들어 GHCR 에 올리고, 서버에 SSH 로 접속해 새 이미지로 교체합니다. 서버에서는 Caddy 가 HTTPS 인증서를 자동 발급하고 앱으로 연결합니다.
 
-### 4-1. 비용 0원 클로즈드 테스트 모드
+```
+GitHub (main 머지)
+  └─ ci (lint, test, build)
+       └─ cd: 이미지 빌드 → ghcr.io/100billionads/main-repo
+                └─ SSH → 서버: docker compose pull && up -d
 
-DB 비용을 당장 쓰지 않을 경우, 아래처럼 운영을 읽기 중심으로 잠시 전환할 수 있습니다.
+서버
+  Caddy (:80, :443, HTTPS 자동) → app (:3000) → MySQL
+```
 
-1. Vercel 환경 변수 설정:
-   - `CLOSED_BETA_MODE=true`
-   - `NEXT_PUBLIC_CLOSED_BETA_MODE=true`
-2. `DATABASE_URL` 또는 `DATABASE_HOST`, `DATABASE_USER`, `DATABASE_NAME`는 비워둠
-3. 재배포
+### 2-1. 서버 준비 (최초 1회)
 
-이 모드에서는:
-- 회원가입/결제/쓰기 API(POST/PUT/PATCH/DELETE)가 503으로 차단됩니다.
-- 홈/조회 페이지는 유지됩니다.
-- 공개 회원가입 버튼과 일부 동선이 자동으로 제한됩니다.
-
-### 5. 무료/저비용 DB 선택지
-
-AWS RDS 대신 아래 옵션을 우선 권장합니다.
-
-1. **TiDB Serverless (무료 권장)**
-   - MySQL 호환 + 무료 티어 제공
-   - `DATABASE_URL` 1개로 연결 가능
-2. **PlanetScale (MySQL 호환)**
-   - 서버리스 트래픽 대응, 브랜치 워크플로우 지원
-3. **Railway MySQL**
-   - 초기 세팅이 빠르고 소규모 서비스에 적합
-4. **로컬/스테이징**
-   - `10badv/docker-compose.yml`의 MySQL 서비스 활용
-
-> 참고: 현재 저장소는 MySQL(`DATABASE_HOST/USER/PASSWORD/NAME`) 기반 연결을 사용합니다.
-
-### 5-1. 무료 파일 스토리지
-
-1. **Cloudinary Free (권장)**
-   - 월 무료 사용량으로 포트폴리오/채팅 파일 업로드 운영 가능
-   - `STORAGE_PROVIDER=cloudinary`와 `CLOUDINARY_*` 설정
-2. **AWS S3 (선택)**
-   - 기존 설정 유지가 필요한 경우 `STORAGE_PROVIDER=s3` 사용
-
-### 6. 프로덕션 배포
+1. Ubuntu 서버를 준비합니다 (Oracle Cloud 무료 티어, AWS EC2, 일반 VPS 등). 80, 443 포트를 엽니다.
+2. 도메인의 A 레코드를 서버 IP 로 연결합니다.
+3. Docker 를 설치합니다: `curl -fsSL https://get.docker.com | sh`
+4. 배포 폴더를 만들고 파일을 복사합니다.
 
 ```bash
-vercel --prod
+mkdir -p ~/10badv && cd ~/10badv
+# 저장소의 10badv/docker-compose.prod.yml, 10badv/Caddyfile 을 이 폴더에 복사
+# 10badv/.env.example 을 참고해 .env 작성
 ```
 
-## 🐳 Docker 배포 (로컬/스테이징)
-
-### Dockerfile 사용
+5. `.env` 에 최소한 아래 값을 채웁니다.
 
 ```bash
-# 이미지 빌드
-docker build -t 10badv .
-
-# 컨테이너 실행
-docker run -p 3000:3000 10badv
+APP_IMAGE=ghcr.io/100billionads/main-repo:latest
+DOMAIN=your-domain.com
+DATABASE_USER=app
+DATABASE_PASSWORD=<openssl rand -hex 24>
+MYSQL_ROOT_PASSWORD=<openssl rand -hex 24>
+DATABASE_NAME=tenbadv
+NEXTAUTH_SECRET=<openssl rand -base64 32>
+CRON_SECRET=<openssl rand -hex 32>
+PORTONE_API_SECRET=<포트원 V2 API Secret>
+STORAGE_PROVIDER=cloudinary
+CLOUDINARY_CLOUD_NAME=...
+CLOUDINARY_API_KEY=...
+CLOUDINARY_API_SECRET=...
 ```
 
-### Docker Compose 사용
+6. GHCR 이미지가 비공개면 서버에서 한 번 로그인합니다: `docker login ghcr.io` (read:packages 권한의 토큰 사용)
+7. 처음 한 번 수동으로 띄워 확인합니다.
 
 ```bash
-cd 10badv
-docker compose up -d db
-docker compose up -d app
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml logs -f app
 ```
 
-## 🌐 다른 플랫폼
+### 2-2. 자동 배포 켜기
 
-### Netlify
+저장소 Settings → Secrets and variables → Actions 에서 설정합니다.
 
-1. GitHub 저장소 연결
-2. 빌드 설정:
-   - Build command: `cd 10badv && npm run build`
-   - Publish directory: `10badv/.next`
-3. 환경 변수 설정
+| 종류 | 이름 | 값 |
+|------|------|-----|
+| Variable | `DEPLOY_ENABLED` | `true` |
+| Variable | `NEXT_PUBLIC_PORTONE_STORE_ID` | 포트원 스토어 ID (공개 값) |
+| Variable | `NEXT_PUBLIC_PORTONE_CHANNEL_KEY` | 포트원 채널 키 (공개 값) |
+| Secret | `DEPLOY_HOST` | 서버 IP 또는 도메인 |
+| Secret | `DEPLOY_USER` | SSH 사용자 |
+| Secret | `DEPLOY_SSH_KEY` | SSH 개인키 |
 
-### Railway (백엔드/DB 통합 대안)
+`NEXT_PUBLIC_*` 값은 이미지 빌드 시점에 화면 코드에 포함되므로 서버의 `.env` 가 아니라 여기에 넣어야 합니다.
 
-1. Railway 프로젝트 생성
-2. GitHub 저장소 연결
-3. MySQL 서비스 추가 후 환경 변수 연결
-4. `10badv` 앱 서비스 배포
+이후 `main` 에 머지되면 `ci` → `cd` 순으로 실행되어 자동 배포됩니다. `DEPLOY_ENABLED` 를 설정하지 않으면 이미지만 올리고 배포는 건너뜁니다.
 
-## 📋 배포 전 체크리스트
+### 2-3. 되돌리기
 
-- [ ] Unit 테스트 통과 (`npm run test:unit`)
-- [ ] 통합 테스트 통과 (`npm run test:integration`)
-- [ ] Lint 오류 없음 (`npm run lint`)
-- [ ] 환경 변수 설정 완료
-- [ ] 데이터베이스 마이그레이션 완료
-- [ ] 프로덕션 빌드 테스트 (`npm run build && npm start`)
-- [ ] 성능 최적화 확인
-- [ ] SEO 메타 태그 확인
-- [ ] 보안 취약점 점검
+이미지에는 `latest` 와 커밋 해시 태그가 함께 붙습니다. 서버의 `.env` 에서 `APP_IMAGE` 를 이전 해시 태그로 바꾸고 `docker compose -f docker-compose.prod.yml up -d` 를 실행합니다.
 
-## 🔒 보안 설정
-
-### 환경 변수
-
-프로덕션 환경에서는 반드시 안전한 값을 사용하세요:
+### 2-4. 백업
 
 ```bash
-# 강력한 시크릿 생성
-openssl rand -base64 32
+docker compose -f docker-compose.prod.yml exec db \
+  sh -c 'mysqldump -u root -p"$MYSQL_ROOT_PASSWORD" --single-transaction "$MYSQL_DATABASE"' > backup-$(date +%F).sql
 ```
 
-### HTTPS 설정
+돈이 오가는 서비스이므로 정기 백업을 권합니다.
 
-프로덕션에서는 반드시 HTTPS를 사용하세요.
+## 3. Vercel 배포
 
-### CORS 설정
+1. Vercel 에서 저장소를 가져오고 Root Directory 를 `10badv` 로 지정합니다.
+2. 환경변수를 Vercel 대시보드에 등록합니다. DB 는 외부 MySQL(TiDB Serverless 등)을 쓰고 `DATABASE_SSL=true` 로 둡니다.
+3. `CRON_SECRET` 을 등록하면 `vercel.json` 의 크론이 하루 한 번 자동정산을 실행합니다. Hobby 플랜은 하루 1회까지만 허용됩니다.
+4. 실시간 채팅은 동작하지 않습니다. 필요하면 `server.js` 를 별도 서버에 띄우고 `NEXT_PUBLIC_SOCKET_URL` 을 그 주소로 지정해야 하는데, 이 경우 세션 쿠키가 같은 상위 도메인을 공유해야 소켓 인증이 됩니다.
 
-필요한 도메인만 허용하도록 설정하세요.
+DB 환경변수가 없는 상태로 배포하면 클로즈드 테스트 모드가 되어 쓰기 기능이 모두 막힙니다 (`10badv/README.md` 참고).
 
-## 📊 모니터링
+## 환경변수
 
-### Vercel Analytics
+전체 목록과 발급 방법은 `10badv/.env.example` 에 있습니다.
 
-Vercel 대시보드에서 자동으로 제공됩니다.
+| 이름 | 필수 | 설명 |
+|------|------|------|
+| `DATABASE_URL` 또는 `DATABASE_HOST/PORT/USER/PASSWORD/NAME` | 예 | MySQL 접속 정보. compose 사용 시 HOST 는 자동으로 `db` |
+| `NEXTAUTH_SECRET` | 예 | 세션 서명 키. 소켓 인증에도 사용 |
+| `NEXTAUTH_URL` | 예 | 서비스 주소. prod compose 는 `DOMAIN` 에서 자동 설정 |
+| `CRON_SECRET` | 권장 | 자동정산 API 비밀값. 없으면 내장 스케줄러가 꺼짐 |
+| `SETTLEMENT_INTERVAL_MINUTES` | 아니오 | 스케줄러 주기 (기본 10) |
+| `ESCROW_AUTO_CONFIRM_DAYS`, `ESCROW_AUTO_CANCEL_DAYS`, `ESCROW_COMMISSION_RATE` | 아니오 | 에스크로 정책 ([ESCROW.md](./ESCROW.md)) |
+| `PORTONE_API_SECRET` | 결제 사용 시 | 포트원 V2 API Secret |
+| `NEXT_PUBLIC_PORTONE_STORE_ID`, `NEXT_PUBLIC_PORTONE_CHANNEL_KEY` | 결제 사용 시 | 빌드 시점 값 |
+| `STORAGE_PROVIDER`, `CLOUDINARY_*` 또는 `AWS_*` | 업로드 사용 시 | 파일 저장소 |
 
-### Sentry (오류 추적)
+## 배포 후 확인
 
-```bash
-npm install @sentry/nextjs
-```
+- [ ] `https://도메인/api/health` 가 `{"status":"ok"}` 를 반환한다
+- [ ] 앱 로그에 `자동정산 스케줄러 시작` 이 보인다
+- [ ] 회원가입, 로그인이 된다
+- [ ] 포인트 충전 → 포트폴리오 구매 → 작업 시작 → 작업 완료 → 구매확정까지 진행되고 디자이너 포인트가 늘어난다
+- [ ] 두 계정으로 채팅이 실시간으로 오간다
+- [ ] 관리자로 로그인해 `POST /api/cron/settle` 을 호출하면 결과가 온다
 
-### Google Analytics
+## CI/CD
 
-`.env.local`:
-```bash
-NEXT_PUBLIC_GA_ID=your-ga-id
-```
+| 워크플로 | 시점 | 하는 일 |
+|----------|------|---------|
+| `.github/workflows/ci.yml` | PR, main/develop 푸시 | lint, 단위 테스트, 빌드, MySQL 통합 테스트 |
+| `.github/workflows/cd.yml` | main 에서 ci 성공 후, 또는 수동 | 이미지 빌드·푸시, 서버 배포 |
 
-## 🔄 CI/CD
+## 문제 해결
 
-### GitHub Actions
-
-`.github/workflows/deploy.yml`:
-
-```yaml
-name: Deploy
-
-on:
-  push:
-    branches: [main]
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v2
-        with:
-          node-version: '20'
-      - run: cd 10badv && npm ci
-      - run: cd 10badv && npm test
-      - run: cd 10badv && npm run build
-      - uses: amondnet/vercel-action@v20
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.ORG_ID }}
-          vercel-project-id: ${{ secrets.PROJECT_ID }}
-```
-
-## 🔧 성능 최적화
-
-### 이미지 최적화
-
-Next.js Image 컴포넌트를 사용하여 자동 최적화
-
-### 코드 스플리팅
-
-동적 import를 사용하여 필요한 코드만 로드
-
-```javascript
-import dynamic from 'next/dynamic';
-
-const DynamicComponent = dynamic(() => import('../components/Heavy'));
-```
-
-### 캐싱
-
-적절한 Cache-Control 헤더 설정
-
-## 📱 모바일 최적화
-
-- 반응형 디자인 확인
-- Touch 이벤트 테스트
-- 모바일 성능 측정
-
-## 🌍 다국어 지원
-
-Next.js i18n 설정을 통한 다국어 지원
-
-## 📝 배포 후 작업
-
-1. 도메인 연결
-2. SSL 인증서 확인
-3. 모니터링 설정
-4. 백업 전략 수립
-5. 장애 복구 계획 수립
-
-## 🆘 트러블슈팅
-
-### 빌드 실패
-
-- 의존성 버전 확인
-- 환경 변수 확인
-- 빌드 로그 확인
-
-### 런타임 오류
-
-- 서버 로그 확인
-- 브라우저 콘솔 확인
-- Sentry 오류 리포트 확인
-
-## 📞 지원
-
-문제가 발생하면 GitHub Issues를 통해 문의해주세요.
+| 증상 | 확인할 것 |
+|------|-----------|
+| 쓰기 요청이 503 | DB 환경변수가 비어 있어 클로즈드 테스트 모드. `.env` 확인 |
+| 채팅 연결이 바로 끊김 | 로그인 상태인지, `NEXTAUTH_SECRET` 이 설정됐는지, `NEXT_PUBLIC_SOCKET_URL` 이 접속 주소와 같은지 |
+| 자동정산이 안 돎 | `CRON_SECRET` 설정 여부, 앱 로그의 `자동정산` 줄 |
+| 결제창이 안 뜸 | `NEXT_PUBLIC_PORTONE_*` 를 저장소 Variables 에 넣고 이미지를 다시 빌드했는지 |
+| HTTPS 인증서 발급 실패 | 도메인 A 레코드, 80/443 포트 개방, `docker compose logs caddy` |

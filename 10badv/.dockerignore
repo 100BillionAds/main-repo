@@ -1,6 +1,14 @@
 .DS_Store
+.git
 node_modules
-.env*.local
+.env
+.env.*
+!.env.example
 .next
 out
 coverage
+__tests__
+scripts
+*.md
+docker-compose*.yml
+Caddyfile

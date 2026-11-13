@@ -189,6 +189,10 @@ describe('Buyer-Designer integration flow', () => {
     expect(transaction.buyer_id).toBe(buyer.id);
     expect(transaction.designer_id).toBe(designer.id);
 
+    // 제안 수락 시 제안 금액이 구매자 포인트에서 차감되어 에스크로로 보관된다
+    const [buyerAfterAccept] = await dbModule.query('SELECT points FROM users WHERE id = ?', [buyer.id]);
+    expect(buyerAfterAccept.points).toBe(55000);
+
     getServerSession.mockResolvedValue({
       user: { id: String(designer.id), role: 'designer', username: designerUsername },
     });

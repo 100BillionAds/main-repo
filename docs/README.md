@@ -8,7 +8,8 @@
 |------|------|
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | 시스템 아키텍처 다이어그램 및 레이어별 설명 |
 | [ERD.md](./ERD.md) | 데이터베이스 ERD 및 테이블 스키마 |
-| [DEPLOYMENT.md](./DEPLOYMENT.md) | Vercel, Docker, AWS 배포 가이드 |
+| [ESCROW.md](./ESCROW.md) | 에스크로 자동정산: 용어, 상태 전환, 동시성 규칙 |
+| [DEPLOYMENT.md](./DEPLOYMENT.md) | Docker 서버 배포, Vercel 배포, CI/CD |
 | [CONTRIBUTING.md](./CONTRIBUTING.md) | 기여 가이드 및 코드 스타일 |
 | [CHANGELOG.md](./CHANGELOG.md) | 버전별 변경 이력 |
 
@@ -35,12 +36,13 @@ main-repo/
 │   ├── src/
 │   │   ├── app/         # Next.js App Router 페이지
 │   │   ├── components/  # 공통 컴포넌트
+│   │   ├── domain/      # 업무 규칙 (포인트 원장, 에스크로)
 │   │   ├── features/    # 기능별 모듈 (admin, chat, payment, portfolio)
 │   │   ├── hooks/       # 커스텀 훅
 │   │   ├── lib/         # DB, 유틸리티
 │   │   └── utils/       # 헬퍼 함수
 │   ├── public/          # 정적 파일
-│   └── server.js        # Socket.io 커스텀 서버
+│   └── server.js        # 커스텀 서버 (Next.js + Socket.io + 자동정산 스케줄러)
 └── .github/             # GitHub Actions, 이슈 템플릿
 ```
 

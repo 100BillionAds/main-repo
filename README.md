@@ -17,7 +17,7 @@
 
 - 🎨 **포트폴리오 마켓** - 디자이너 작품 등록/검색/구매
 - 💬 **실시간 채팅** - Socket.io 기반 1:1 메시징
-- 💳 **에스크로 결제** - 안전한 포인트 기반 거래
+- 💳 **에스크로 자동정산** - 포인트를 보관했다가 구매확정 시 정산, 기한이 지나면 자동 구매확정·자동 환불
 - ⭐ **리뷰 시스템** - 거래 완료 후 별점 평가
 - 👥 **다중 역할** - 광고주, 디자이너, 관리자
 
@@ -37,6 +37,7 @@ main-repo/
 ├── docs/                # 📚 문서
 │   ├── ARCHITECTURE.md  # 시스템 아키텍처
 │   ├── ERD.md           # 데이터베이스 ERD
+│   ├── ESCROW.md        # 에스크로 자동정산
 │   ├── DEPLOYMENT.md    # 배포 가이드
 │   └── CONTRIBUTING.md  # 기여 가이드
 └── 10badv/              # 📦 애플리케이션 코드
@@ -67,6 +68,7 @@ npm run dev
 
 - [시스템 아키텍처](./docs/ARCHITECTURE.md)
 - [데이터베이스 ERD](./docs/ERD.md)
+- [에스크로 자동정산](./docs/ESCROW.md)
 - [배포 가이드](./docs/DEPLOYMENT.md)
 - [기여 가이드](./docs/CONTRIBUTING.md)
 - [변경 이력](./docs/CHANGELOG.md)

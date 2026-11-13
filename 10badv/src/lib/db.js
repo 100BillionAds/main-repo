@@ -90,6 +90,61 @@ export async function getConnection() {
   return pool.getConnection();
 }
 
+/**
+ * 트랜잭션 헬퍼: 커넥션 획득 → BEGIN → work(connection) → COMMIT.
+ * work 가 예외를 던지면 ROLLBACK 하고 예외를 다시 던진다. 커넥션은 항상 반환된다.
+ */
+export async function withTransaction(work) {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const result = await work(connection);
+    await connection.commit();
+    return result;
+  } catch (error) {
+    await connection.rollback().catch(() => {});
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
+// 기존 테이블에 누락된 컬럼 보강. 새로 추가했으면 true 반환
+async function ensureColumn(connection, tableName, columnName, ddl) {
+  const [rows] = await connection.query(
+    `SELECT COUNT(*) as cnt
+       FROM information_schema.columns
+      WHERE table_schema = DATABASE()
+        AND table_name = ?
+        AND column_name = ?`,
+    [tableName, columnName]
+  );
+  if (Number(rows?.[0]?.cnt || 0) > 0) {
+    return false;
+  }
+  await connection.query(ddl);
+  return true;
+}
+
+// 인덱스가 없을 때만 생성 (MySQL 은 CREATE INDEX IF NOT EXISTS 를 지원하지 않는다)
+async function ensureIndex(connection, tableName, indexName, columns, { unique = false } = {}) {
+  const [rows] = await connection.query(
+    `SELECT COUNT(*) as cnt
+       FROM information_schema.statistics
+      WHERE table_schema = DATABASE()
+        AND table_name = ?
+        AND index_name = ?`,
+    [tableName, indexName]
+  );
+  if (Number(rows?.[0]?.cnt || 0) > 0) {
+    return false;
+  }
+  await connection.query(
+    `CREATE ${unique ? 'UNIQUE ' : ''}INDEX ${indexName} ON ${tableName}(${columns})`
+  );
+  return true;
+}
+
 // 데이터베이스 연결 테스트 및 초기화
 export async function initializeDatabase() {
   try {
@@ -193,6 +248,15 @@ export async function initializeDatabase() {
         status ENUM('pending', 'in_progress', 'awaiting_confirmation', 'completed', 'cancelled') DEFAULT 'pending',
         payment_method VARCHAR(50) DEFAULT 'points',
         payment_status ENUM('pending', 'completed', 'failed', 'refunded') DEFAULT 'pending',
+        escrow_status ENUM('none', 'held', 'released', 'refunded') NOT NULL DEFAULT 'none',
+        settled_by ENUM('buyer', 'designer', 'admin', 'auto') NULL,
+        cancel_reason VARCHAR(255) NULL,
+        started_at DATETIME NULL,
+        submitted_at DATETIME NULL,
+        auto_confirm_at DATETIME NULL,
+        auto_cancel_at DATETIME NULL,
+        completed_at DATETIME NULL,
+        cancelled_at DATETIME NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (portfolio_id) REFERENCES portfolios(id) ON DELETE SET NULL,
@@ -246,24 +310,38 @@ export async function initializeDatabase() {
     `);
 
     // 기존 스키마 호환: 과거 테이블에 누락된 컬럼 보강
-    const ensurePaymentsColumn = async (columnName, ddl) => {
-      const [rows] = await connection.query(
-        `SELECT COUNT(*) as cnt
-           FROM information_schema.columns
-          WHERE table_schema = DATABASE()
-            AND table_name = 'payments'
-            AND column_name = ?`,
-        [columnName]
-      );
+    await ensureColumn(connection, 'payments', 'order_name', 'ALTER TABLE payments ADD COLUMN order_name TEXT');
+    await ensureColumn(connection, 'payments', 'fail_reason', 'ALTER TABLE payments ADD COLUMN fail_reason TEXT');
+    await ensureColumn(connection, 'payments', 'cancel_reason', 'ALTER TABLE payments ADD COLUMN cancel_reason TEXT');
 
-      if ((rows?.[0]?.cnt || 0) === 0) {
-        await connection.query(ddl);
-      }
-    };
+    // 에스크로 자동정산 컬럼 (기존 DB 업그레이드)
+    const escrowStatusAdded = await ensureColumn(
+      connection, 'transactions', 'escrow_status',
+      "ALTER TABLE transactions ADD COLUMN escrow_status ENUM('none', 'held', 'released', 'refunded') NOT NULL DEFAULT 'none'"
+    );
+    await ensureColumn(connection, 'transactions', 'settled_by', "ALTER TABLE transactions ADD COLUMN settled_by ENUM('buyer', 'designer', 'admin', 'auto') NULL");
+    await ensureColumn(connection, 'transactions', 'cancel_reason', 'ALTER TABLE transactions ADD COLUMN cancel_reason VARCHAR(255) NULL');
+    await ensureColumn(connection, 'transactions', 'started_at', 'ALTER TABLE transactions ADD COLUMN started_at DATETIME NULL');
+    await ensureColumn(connection, 'transactions', 'submitted_at', 'ALTER TABLE transactions ADD COLUMN submitted_at DATETIME NULL');
+    await ensureColumn(connection, 'transactions', 'auto_confirm_at', 'ALTER TABLE transactions ADD COLUMN auto_confirm_at DATETIME NULL');
+    await ensureColumn(connection, 'transactions', 'auto_cancel_at', 'ALTER TABLE transactions ADD COLUMN auto_cancel_at DATETIME NULL');
+    await ensureColumn(connection, 'transactions', 'completed_at', 'ALTER TABLE transactions ADD COLUMN completed_at DATETIME NULL');
+    await ensureColumn(connection, 'transactions', 'cancelled_at', 'ALTER TABLE transactions ADD COLUMN cancelled_at DATETIME NULL');
 
-    await ensurePaymentsColumn('order_name', 'ALTER TABLE payments ADD COLUMN order_name TEXT');
-    await ensurePaymentsColumn('fail_reason', 'ALTER TABLE payments ADD COLUMN fail_reason TEXT');
-    await ensurePaymentsColumn('cancel_reason', 'ALTER TABLE payments ADD COLUMN cancel_reason TEXT');
+    if (escrowStatusAdded) {
+      // 컬럼을 처음 추가할 때 한 번만: 기존 거래의 에스크로 상태를 결제 상태에서 역산한다.
+      // 포인트가 실제로 차감된 거래(payment_status = 'completed')만 보관(held)으로 본다.
+      await connection.query(`
+        UPDATE transactions
+           SET escrow_status = CASE
+                 WHEN payment_status = 'refunded' THEN 'refunded'
+                 WHEN payment_status = 'completed' AND status = 'completed' THEN 'released'
+                 WHEN payment_status = 'completed' AND status = 'cancelled' THEN 'refunded'
+                 WHEN payment_status = 'completed' THEN 'held'
+                 ELSE 'none'
+               END
+      `);
+    }
 
     // reviews 테이블
     await connection.query(`
@@ -343,42 +421,50 @@ export async function initializeDatabase() {
     const indexConnection = await pool.getConnection();
     const indexes = [
       // users
-      'CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)',
-      'CREATE INDEX IF NOT EXISTS idx_users_role_status ON users(role, status)',
-      'CREATE INDEX IF NOT EXISTS idx_users_rating ON users(rating DESC)',
+      ['users', 'idx_users_email', 'email'],
+      ['users', 'idx_users_role_status', 'role, status'],
+      ['users', 'idx_users_rating', 'rating'],
       // portfolios
-      'CREATE INDEX IF NOT EXISTS idx_portfolios_designer_status ON portfolios(designer_id, status)',
-      'CREATE INDEX IF NOT EXISTS idx_portfolios_category ON portfolios(category)',
-      'CREATE INDEX IF NOT EXISTS idx_portfolios_status ON portfolios(status)',
-      'CREATE INDEX IF NOT EXISTS idx_portfolios_created ON portfolios(created_at DESC)',
+      ['portfolios', 'idx_portfolios_designer_status', 'designer_id, status'],
+      ['portfolios', 'idx_portfolios_category', 'category'],
+      ['portfolios', 'idx_portfolios_status', 'status'],
+      ['portfolios', 'idx_portfolios_created', 'created_at'],
       // transactions
-      'CREATE INDEX IF NOT EXISTS idx_transactions_buyer ON transactions(buyer_id)',
-      'CREATE INDEX IF NOT EXISTS idx_transactions_designer ON transactions(designer_id)',
-      'CREATE INDEX IF NOT EXISTS idx_transactions_status ON transactions(status)',
-      'CREATE INDEX IF NOT EXISTS idx_transactions_created ON transactions(created_at DESC)',
+      ['transactions', 'idx_transactions_buyer', 'buyer_id'],
+      ['transactions', 'idx_transactions_designer', 'designer_id'],
+      ['transactions', 'idx_transactions_status', 'status'],
+      ['transactions', 'idx_transactions_created', 'created_at'],
+      // 자동정산 대상 조회용
+      ['transactions', 'idx_transactions_auto_confirm', 'status, auto_confirm_at'],
+      ['transactions', 'idx_transactions_auto_cancel', 'status, auto_cancel_at'],
       // reviews
-      'CREATE INDEX IF NOT EXISTS idx_reviews_designer ON reviews(designer_id)',
+      ['reviews', 'idx_reviews_designer', 'designer_id'],
       // point_transactions
-      'CREATE INDEX IF NOT EXISTS idx_point_tx_user_created ON point_transactions(user_id, created_at DESC)',
+      ['point_transactions', 'idx_point_tx_user_created', 'user_id, created_at'],
+      // 같은 결제/거래에 대해 같은 종류의 포인트 기록이 두 번 남지 않도록 하는 최후 방어선
+      ['point_transactions', 'uniq_point_tx_reference', 'reference_type, reference_id, type', { unique: true }],
       // chat_rooms
-      'CREATE INDEX IF NOT EXISTS idx_chat_rooms_user1 ON chat_rooms(user1_id)',
-      'CREATE INDEX IF NOT EXISTS idx_chat_rooms_user2 ON chat_rooms(user2_id)',
+      ['chat_rooms', 'idx_chat_rooms_user1', 'user1_id'],
+      ['chat_rooms', 'idx_chat_rooms_user2', 'user2_id'],
       // chat_messages
-      'CREATE INDEX IF NOT EXISTS idx_chat_msg_room_created ON chat_messages(room_id, created_at)',
-      'CREATE INDEX IF NOT EXISTS idx_chat_msg_unread ON chat_messages(room_id, sender_id, is_read)',
+      ['chat_messages', 'idx_chat_msg_room_created', 'room_id, created_at'],
+      ['chat_messages', 'idx_chat_msg_unread', 'room_id, sender_id, is_read'],
       // requests
-      'CREATE INDEX IF NOT EXISTS idx_requests_status ON requests(status)',
-      'CREATE INDEX IF NOT EXISTS idx_requests_client ON requests(client_id)',
+      ['requests', 'idx_requests_status', 'status'],
+      ['requests', 'idx_requests_client', 'client_id'],
       // proposals
-      'CREATE INDEX IF NOT EXISTS idx_proposals_request ON proposals(request_id)',
-      'CREATE INDEX IF NOT EXISTS idx_proposals_designer ON proposals(designer_id)',
+      ['proposals', 'idx_proposals_request', 'request_id'],
+      ['proposals', 'idx_proposals_designer', 'designer_id'],
       // payments
-      'CREATE INDEX IF NOT EXISTS idx_payments_user ON payments(user_id)',
-      'CREATE INDEX IF NOT EXISTS idx_payments_merchant ON payments(merchant_uid)',
+      ['payments', 'idx_payments_user', 'user_id'],
     ];
-
-    for (const sql of indexes) {
-      try { await indexConnection.query(sql); } catch (e) { /* 이미 존재하면 무시 */ }
+    for (const [tableName, indexName, columns, options] of indexes) {
+      try {
+        await ensureIndex(indexConnection, tableName, indexName, columns, options);
+      } catch (e) {
+        // 인덱스는 성능/방어용이므로 실패해도 서비스는 계속한다. 원인은 로그로 남긴다.
+        console.error(`인덱스 생성 실패 (${indexName}):`, e.message);
+      }
     }
     indexConnection.release();
 

@@ -8,6 +8,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 에스크로 자동정산: 작업 완료 제출 후 기한(기본 7일) 내 구매확정이 없으면 자동 구매확정, 결제 후 기한 내 디자이너가 작업을 시작하지 않으면 자동 취소·환불
+- 자동정산 API `POST /api/cron/settle` 와 `server.js` 내장 스케줄러, Vercel 크론 설정
+- 도메인 계층 `src/domain` (포인트 원장, 에스크로 정책·서비스)
+- 거래 상세 화면에 자동정산 기한 안내
+- 서버 시작 시 스키마 자동 초기화 (`src/instrumentation.js`)
+- 배포: 운영용 `docker-compose.prod.yml`, `Caddyfile`, GHCR 이미지 빌드와 SSH 배포를 수행하는 `cd` 워크플로
+- 에스크로 정책 단위 테스트, 동시성 통합 테스트
+- 문서: `docs/ESCROW.md`
+
+### Fixed
+- 제안 수락 시 구매자 포인트를 차감하지 않고 거래가 만들어져, 거래 완료 시 디자이너에게 없는 포인트가 지급되던 문제
+- 결제 검증 요청이 동시에 오면 포인트가 중복 충전될 수 있던 문제
+- 거래 상태 변경 요청이 동시에 오면 대금이 중복 지급되거나 지급과 환불이 함께 일어날 수 있던 문제
+- Socket.io 가 클라이언트가 보낸 사용자 ID 를 그대로 믿어, 남의 채팅방에 입장하거나 남의 이름으로 메시지를 보낼 수 있던 문제
+- MySQL 에서 `CREATE INDEX IF NOT EXISTS` 가 지원되지 않아 인덱스가 하나도 만들어지지 않던 문제
+- 거래 목록 조회의 `LIMIT ? OFFSET ?` 바인딩 오류
+- Dockerfile 이 비활성화된 standalone 출력을 복사해 빌드가 실패하던 문제
+- 결제·인출 금액에 정수가 아닌 값이 들어갈 수 있던 문제, 인출 최소 금액 안내가 화면과 서버에서 다르던 문제
+- 운영 빌드에서 서버 오류 로그까지 제거되던 문제
+
+### Changed
+- 작업이 시작된 거래는 구매자가 혼자 취소할 수 없음 (디자이너 또는 관리자만 가능)
+- 스키마 초기화가 회원가입 API 최초 호출 시점이 아니라 서버 시작 시점에 실행됨
+- `cd-backend`, `cd-admin` 워크플로 틀을 실제 동작하는 `cd` 하나로 교체
+- `docs/ERD.md` 를 실제 스키마에 맞게 다시 작성, `docs/DEPLOYMENT.md` 를 Docker 배포 중심으로 다시 작성
+
+### Added (initial)
 - Initial project structure with Next.js 16
 - Modern UI components (Button, Card, Input, Loading)
 - Authentication ready with NextAuth.js

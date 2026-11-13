@@ -14,6 +14,8 @@ export function useSocket(userId) {
 
     socketRef.current = io(socketUrl, {
       transports: ['websocket', 'polling'],
+      // 서버가 세션 쿠키로 사용자를 인증한다
+      withCredentials: true,
     });
 
     socketRef.current.on('connect', () => {

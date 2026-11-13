@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import pool from '@/lib/db';
+import { purchasePortfolio } from '@/domain/escrow/escrowService';
+import { errorResponse } from '@/lib/apiResponse';
 
 // GET: 거래 내역 조회
 export async function GET(request) {
@@ -14,8 +16,8 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
     const status = searchParams.get('status');
-    const page = parseInt(searchParams.get('page') || '1', 10);
-    const limit = Math.max(1, Math.min(50, parseInt(searchParams.get('limit') || '20', 10)));
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
+    const limit = Math.max(1, Math.min(50, parseInt(searchParams.get('limit') || '20', 10) || 20));
     const offset = (page - 1) * limit;
 
     let query = `
@@ -54,8 +56,8 @@ export async function GET(request) {
       countParams.push(status);
     }
 
-    query += ' ORDER BY t.created_at DESC LIMIT ? OFFSET ?';
-    params.push(limit, offset);
+    // LIMIT/OFFSET 은 검증된 정수 리터럴로 넣는다 (prepared statement 바인딩 시 MySQL 8 오류)
+    query += ` ORDER BY t.created_at DESC LIMIT ${limit} OFFSET ${offset}`;
 
     const [[transactions], [countResult]] = await Promise.all([
       pool.execute(query, params),
@@ -77,123 +79,29 @@ export async function GET(request) {
   }
 }
 
-// POST: 새 거래 생성 (포인트 결제)
+// POST: 새 거래 생성 (포인트 결제 → 에스크로 보관)
 export async function POST(request) {
-  const connection = await pool.getConnection();
   try {
     const session = await getServerSession(authOptions);
     if (!session) {
-      connection.release();
       return NextResponse.json({ success: false, error: '로그인이 필요합니다.' }, { status: 401 });
     }
 
     const { portfolio_id, amount } = await request.json();
 
-    if (!portfolio_id) {
-      connection.release();
-      return NextResponse.json({ success: false, error: '필수 정보가 누락되었습니다.' }, { status: 400 });
-    }
-
-    const requestedAmount = Number(amount);
-
-    await connection.beginTransaction();
-
-    // 포트폴리오 정보 조회
-    const [portfolios] = await connection.execute(
-      'SELECT * FROM portfolios WHERE id = ? AND status = ?',
-      [portfolio_id, 'approved']
-    );
-
-    if (portfolios.length === 0) {
-      await connection.rollback();
-      connection.release();
-      return NextResponse.json({ success: false, error: '포트폴리오를 찾을 수 없거나 승인되지 않았습니다.' }, { status: 404 });
-    }
-
-    const portfolio = portfolios[0];
-    const portfolioPrice = Number(portfolio.price || 0);
-
-    if (!Number.isInteger(portfolioPrice) || portfolioPrice < 1000 || portfolioPrice % 1000 !== 0) {
-      await connection.rollback();
-      connection.release();
-      return NextResponse.json({ success: false, error: '포트폴리오 가격이 유효하지 않습니다.' }, { status: 400 });
-    }
-
-    if (Number.isFinite(requestedAmount) && requestedAmount > 0 && requestedAmount !== portfolioPrice) {
-      await connection.rollback();
-      connection.release();
-      return NextResponse.json({ success: false, error: '포트폴리오 가격과 결제 금액이 일치하지 않습니다.' }, { status: 400 });
-    }
-
-    const transactionAmount = portfolioPrice;
-
-    if (portfolio.designer_id === parseInt(session.user.id)) {
-      await connection.rollback();
-      connection.release();
-      return NextResponse.json({ success: false, error: '자신의 포트폴리오는 구매할 수 없습니다.' }, { status: 400 });
-    }
-
-    // 구매자 포인트 조회
-    const [buyers] = await connection.execute(
-      'SELECT points FROM users WHERE id = ? FOR UPDATE',
-      [session.user.id]
-    );
-
-    if (buyers.length === 0) {
-      await connection.rollback();
-      connection.release();
-      return NextResponse.json({ success: false, error: '사용자 정보를 찾을 수 없습니다.' }, { status: 404 });
-    }
-
-    const buyerPoints = buyers[0].points || 0;
-
-    if (buyerPoints < transactionAmount) {
-      await connection.rollback();
-      connection.release();
-      return NextResponse.json({
-        success: false,
-        error: `포인트가 부족합니다. (필요: ${transactionAmount.toLocaleString()}P, 보유: ${buyerPoints.toLocaleString()}P)`
-      }, { status: 400 });
-    }
-
-    // 구매자 포인트 차감 (에스크로)
-    const newBuyerBalance = buyerPoints - transactionAmount;
-    await connection.execute(
-      'UPDATE users SET points = ? WHERE id = ?',
-      [newBuyerBalance, session.user.id]
-    );
-
-    // 거래 생성
-    const [result] = await connection.execute(
-      `INSERT INTO transactions
-       (portfolio_id, buyer_id, designer_id, amount, status, payment_method, payment_status)
-       VALUES (?, ?, ?, ?, 'pending', 'points', 'completed')`,
-      [portfolio_id, session.user.id, portfolio.designer_id, transactionAmount]
-    );
-
-    const transactionId = result.insertId;
-
-    // 포인트 사용 내역 기록
-    await connection.execute(
-      `INSERT INTO point_transactions
-       (user_id, type, amount, balance_after, description, reference_type, reference_id, status)
-       VALUES (?, 'use', ?, ?, ?, 'transaction', ?, 'completed')`,
-      [session.user.id, transactionAmount, newBuyerBalance, `포트폴리오 구매 (에스크로): ${portfolio.title}`, transactionId]
-    );
-
-    await connection.commit();
-    connection.release();
+    const { transactionId, points } = await purchasePortfolio({
+      buyerId: session.user.id,
+      portfolioId: portfolio_id,
+      requestedAmount: amount,
+    });
 
     return NextResponse.json({
       success: true,
       transactionId,
       message: '구매가 완료되었습니다. 디자이너가 작업을 시작할 때까지 기다려주세요.',
-      points: newBuyerBalance
+      points
     });
   } catch (error) {
-    await connection.rollback().catch(() => {});
-    connection.release();
-    console.error('거래 생성 실패:', error);
-    return NextResponse.json({ success: false, error: '거래 생성에 실패했습니다.' }, { status: 500 });
+    return errorResponse(error, '거래 생성에 실패했습니다.', '거래 생성 실패');
   }
 }
