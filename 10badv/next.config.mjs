@@ -25,6 +25,10 @@ const nextConfig = {
       },
       {
         protocol: 'https',
+        hostname: 'res.cloudinary.com',
+      },
+      {
+        protocol: 'https',
         hostname: 'i.pravatar.cc',
       },
       {
@@ -70,7 +74,7 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.portone.io; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.amazonaws.com https://i.pravatar.cc https://via.placeholder.com https://images.unsplash.com; font-src 'self' data:; connect-src 'self' https://*.amazonaws.com https://api.portone.io https://cdn.portone.io https://*.iamport.co https://*.iamport.kr wss: ws:; frame-src 'self' https://*.portone.io https://*.iamport.kr https://*.iamport.co; frame-ancestors 'none';",
+            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.portone.io; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://res.cloudinary.com https://*.amazonaws.com https://i.pravatar.cc https://via.placeholder.com https://images.unsplash.com; font-src 'self' data:; connect-src 'self' https://*.amazonaws.com https://api.portone.io https://cdn.portone.io https://*.iamport.co https://*.iamport.kr wss: ws:; frame-src 'self' https://*.portone.io https://*.iamport.kr https://*.iamport.co; frame-ancestors 'none';",
           },
         ],
       },
