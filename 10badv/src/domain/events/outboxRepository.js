@@ -58,7 +58,7 @@ export async function claimBatch({ limit = 50, requeueAfterSeconds = DEFAULT_REQ
         SET claim_token = ?, enqueued_at = NOW()
       WHERE processed_at IS NULL
         AND attempts < ?
-        AND (enqueued_at IS NULL OR enqueued_at < NOW() - INTERVAL ? SECOND)
+        AND (enqueued_at IS NULL OR enqueued_at <= NOW() - INTERVAL ? SECOND)
       ORDER BY id
       LIMIT ${batch}`,
     [token, MAX_ATTEMPTS, Math.max(0, Math.floor(requeueAfterSeconds))]
