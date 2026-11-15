@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { readSse } from '@/lib/sse';
+import { parseDraft } from '@/domain/ai/requestDraft';
 import styles from './CreateRequestPage.module.css';
 
 export default function CreateRequestPage() {
@@ -17,6 +19,52 @@ export default function CreateRequestPage() {
   });
   const [tagInput, setTagInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [brief, setBrief] = useState('');
+  const [drafting, setDrafting] = useState(false);
+  const [draftError, setDraftError] = useState('');
+
+  // AI 초안: 서버가 글자를 보내는 대로(SSE) 제목·설명 칸에 채워 넣는다.
+  const handleDraft = async () => {
+    if (!session) {
+      alert('로그인이 필요합니다.');
+      router.push('/login');
+      return;
+    }
+
+    setDrafting(true);
+    setDraftError('');
+    try {
+      const response = await fetch('/api/ai/request-draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brief, category: formData.category, budget: formData.budget }),
+      });
+
+      // 입력 오류·한도 초과는 스트림이 시작되기 전에 일반 JSON 으로 온다.
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'AI 초안 작성에 실패했습니다.');
+      }
+
+      let text = '';
+      for await (const { event, data } of readSse(response)) {
+        const payload = JSON.parse(data);
+        if (event === 'error') throw new Error(payload.error);
+
+        if (event === 'delta') text += payload.text;
+        const draft = event === 'done' ? payload : parseDraft(text);
+        setFormData((prev) => ({
+          ...prev,
+          title: draft.title || prev.title,
+          description: draft.description || prev.description,
+        }));
+      }
+    } catch (error) {
+      setDraftError(error.message || 'AI 초안 작성에 실패했습니다.');
+    } finally {
+      setDrafting(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -87,6 +135,34 @@ export default function CreateRequestPage() {
             디자이너에게 원하는 간판 디자인을 의뢰하세요
           </p>
         </div>
+
+        <section className={styles.aiPanel}>
+          <h2 className={styles.aiTitle}>🤖 AI로 초안 작성</h2>
+          <p className={styles.aiHint}>
+            원하는 간판을 한두 줄로 적으면 의뢰서 형태로 다듬어 드립니다. 결과는 아래 칸에 채워지며, 등록 전에 자유롭게 고칠 수 있습니다.
+          </p>
+          <textarea
+            value={brief}
+            onChange={(e) => setBrief(e.target.value)}
+            placeholder="예: 동네 카페 간판. 따뜻하고 아늑한 느낌, 나무 소재, 밤에도 잘 보였으면 좋겠어요."
+            className={styles.textarea}
+            rows={3}
+            maxLength={500}
+            disabled={drafting}
+          />
+          <div className={styles.aiActions}>
+            <span className={styles.aiCount}>{brief.length} / 500</span>
+            <button
+              type="button"
+              onClick={handleDraft}
+              className={styles.addTagButton}
+              disabled={drafting || brief.trim().length < 10}
+            >
+              {drafting ? '작성 중...' : '초안 작성'}
+            </button>
+          </div>
+          {draftError && <p className={styles.aiError} role="alert">{draftError}</p>}
+        </section>
 
         <form onSubmit={handleSubmit} className={styles.form}>
           <div className={styles.formGroup}>

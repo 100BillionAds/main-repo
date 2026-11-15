@@ -213,6 +213,22 @@ erDiagram
 
 `src/lib/migrations/` 에 새 마이그레이션 파일을 추가하고 `index.js` 목록 끝에 등록합니다. 이미 적용된 마이그레이션은 수정하지 않습니다. 절차와 규칙은 [MIGRATIONS.md](./MIGRATIONS.md) 에 있습니다.
 
+### ai_requests
+
+AI 호출 기록 ([LLM.md](./LLM.md)). 메모 원문과 응답은 저장하지 않습니다.
+
+| 컬럼 | 설명 |
+|---|---|
+| `id` | PK |
+| `user_id` | 호출한 사용자 (FK → users) |
+| `feature` | 기능 이름 (예: `request_draft`) |
+| `prompt_version` | 프롬프트 버전 (예: `v1`) |
+| `provider`, `model` | 실제로 응답한 제공자와 모델 |
+| `status` | `pending` / `success` / `error` / `rejected`(한도 초과) |
+| `input_chars`, `input_tokens`, `output_tokens` | 사용량 |
+| `latency_ms`, `error_code` | 걸린 시간, 실패 원인 |
+| `created_at` | 호출 시각. `(user_id, created_at)` 인덱스로 하루 한도를 셉니다 |
+
 ### schema_migrations
 
 | 컬럼 | 설명 |

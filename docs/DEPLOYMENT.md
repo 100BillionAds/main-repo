@@ -264,6 +264,7 @@ DB 환경변수가 없는 상태로 배포하면 클로즈드 테스트 모드�
 | `CRON_SECRET` | 권장 | 자동정산 API 비밀값. 없으면 내장 스케줄러가 꺼짐 |
 | `SETTLEMENT_INTERVAL_MINUTES` | 아니오 | 스케줄러 주기 (기본 10) |
 | `ESCROW_AUTO_CONFIRM_DAYS`, `ESCROW_AUTO_CANCEL_DAYS`, `ESCROW_COMMISSION_RATE` | 아니오 | 에스크로 정책 ([ESCROW.md](./ESCROW.md)) |
+| `LLM_PROVIDER`, `ANTHROPIC_API_KEY` 등 | 아니오 | AI 기능. 기본은 `mock` (실제 호출 없음). [LLM.md](./LLM.md) |
 | `PORTONE_API_SECRET` | 결제 사용 시 | 포트원 V2 API Secret |
 | `NEXT_PUBLIC_PORTONE_STORE_ID`, `NEXT_PUBLIC_PORTONE_CHANNEL_KEY` | 결제 사용 시 | 빌드 시점 값 |
 | `STORAGE_PROVIDER`, `CLOUDINARY_*` 또는 `AWS_*` | 업로드 사용 시 | 파일 저장소 |

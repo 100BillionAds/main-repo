@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- AI 의뢰서 초안 작성: 의뢰 작성 화면에서 짧은 메모를 의뢰서 형태로 다듬어 스트리밍으로 채워 줌 (`POST /api/ai/request-draft`)
+- LLM 제공자 추상화 `src/lib/llm` (anthropic / openai / mock), 제한 시간·재시도·대체 제공자, 버전 관리되는 프롬프트, 사용 기록 테이블 `ai_requests` 와 사용자별 하루 한도. 문서 `docs/LLM.md`
 - 도메인 계층 정리: 금액 값 객체 `Money`, 거래 엔티티 `Trade`, 저장소 `tradeRepository`. 에스크로 서비스는 순서 조율만 담당
 - 스키마 마이그레이션 체계: 번호가 붙은 마이그레이션(`src/lib/migrations`), 적용 기록 테이블 `schema_migrations`, DB 잠금(`GET_LOCK`)으로 동시 실행 방지, 체크섬으로 적용된 마이그레이션 변조 감지. 문서 `docs/MIGRATIONS.md`
 - 에스크로 자동정산: 작업 완료 제출 후 기한(기본 7일) 내 구매확정이 없으면 자동 구매확정, 결제 후 기한 내 디자이너가 작업을 시작하지 않으면 자동 취소·환불
@@ -18,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 배포: 운영용 `docker-compose.prod.yml`, `Caddyfile`, GHCR 이미지 빌드와 SSH 배포를 수행하는 `cd` 워크플로
 - 에스크로 정책 단위 테스트, 동시성 통합 테스트
 - 문서: `docs/ESCROW.md`
+
+### Changed
+- 포트원 결제 조회 코드를 `src/lib/payment/portoneGateway.js` 로 분리 (동작 동일)
 
 ### Fixed
 - 수수료율이 10% 가 아닐 때 부동소수점 오차로 수수료가 1원 적게 계산될 수 있던 문제 (예: 3,000원 × 29% = 869원 → 870원)
