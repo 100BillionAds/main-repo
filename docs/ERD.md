@@ -1,6 +1,6 @@
 # 백억광고 (100BillionAds) ERD
 
-스키마의 기준은 `10badv/src/lib/db.js` 의 `initializeDatabase()` 입니다. 서버가 시작될 때(`src/instrumentation.js`) 테이블이 없으면 만들고, 누락된 컬럼과 인덱스를 보강합니다.
+스키마의 기준은 `10badv/src/lib/migrations/` 의 마이그레이션입니다. 서버가 시작될 때(`src/instrumentation.js`) 아직 적용되지 않은 마이그레이션만 순서대로 실행하고, 적용 기록을 `schema_migrations` 테이블에 남깁니다. 자세한 내용은 [MIGRATIONS.md](./MIGRATIONS.md) 를 보세요.
 
 ## Entity Relationship Diagram
 
@@ -211,6 +211,14 @@ erDiagram
 
 ## 스키마 변경 방법
 
-1. `initializeDatabase()` 의 `CREATE TABLE` 문에 컬럼을 추가합니다 (새 DB 용).
-2. 같은 함수에 `ensureColumn(...)` 호출을 추가합니다 (기존 DB 업그레이드용).
-3. 수동 적용이 필요한 환경을 위해 `10badv/migrations/` 에 같은 내용의 SQL 을 남깁니다.
+`src/lib/migrations/` 에 새 마이그레이션 파일을 추가하고 `index.js` 목록 끝에 등록합니다. 이미 적용된 마이그레이션은 수정하지 않습니다. 절차와 규칙은 [MIGRATIONS.md](./MIGRATIONS.md) 에 있습니다.
+
+### schema_migrations
+
+| 컬럼 | 설명 |
+|---|---|
+| `id` | 마이그레이션 id (예: `0001_baseline`). PK |
+| `checksum` | 적용 당시 내용의 SHA-256 |
+| `description` | 설명 |
+| `execution_ms` | 실행에 걸린 시간 |
+| `applied_at` | 적용 시각 |

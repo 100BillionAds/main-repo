@@ -9,6 +9,7 @@
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | 시스템 아키텍처 다이어그램 및 레이어별 설명 |
 | [ERD.md](./ERD.md) | 데이터베이스 ERD 및 테이블 스키마 |
 | [ESCROW.md](./ESCROW.md) | 에스크로 자동정산: 용어, 상태 전환, 동시성 규칙 |
+| [MIGRATIONS.md](./MIGRATIONS.md) | 스키마 마이그레이션: 추가 방법, 규칙, 실패 시 동작 |
 | [DEPLOYMENT.md](./DEPLOYMENT.md) | Docker 서버 배포, Vercel 배포, CI/CD |
 | [CONTRIBUTING.md](./CONTRIBUTING.md) | 기여 가이드 및 코드 스타일 |
 | [CHANGELOG.md](./CHANGELOG.md) | 버전별 변경 이력 |
