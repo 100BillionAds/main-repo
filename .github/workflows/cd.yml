@@ -1,0 +1,97 @@
+name: cd
+
+# main 에서 ci 가 성공하면: 이미지 빌드 → GHCR 푸시 → (설정된 경우) 서버 배포
+# 수동 실행(workflow_dispatch)도 지원한다.
+#
+# 서버 배포를 켜려면 저장소 Settings 에서:
+#   Variables: DEPLOY_ENABLED=true
+#              NEXT_PUBLIC_PORTONE_STORE_ID, NEXT_PUBLIC_PORTONE_CHANNEL_KEY (결제 사용 시, 공개 값)
+#   Secrets  : DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY
+# 서버 준비 방법은 docs/DEPLOYMENT.md 참고.
+
+on:
+  workflow_run:
+    workflows: [ci]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+
+concurrency:
+  group: cd-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+      sha: ${{ steps.meta.outputs.sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Image name
+        id: meta
+        run: |
+          echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      # Oracle Cloud 무료 서버(Ampere A1)는 ARM 이므로 amd64 와 arm64 를 함께 빌드한다.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: 10badv
+          push: true
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NEXT_PUBLIC_PORTONE_STORE_ID=${{ vars.NEXT_PUBLIC_PORTONE_STORE_ID }}
+            NEXT_PUBLIC_PORTONE_CHANNEL_KEY=${{ vars.NEXT_PUBLIC_PORTONE_CHANNEL_KEY }}
+            NEXT_PUBLIC_PAYMENT_MOCK_MODE=${{ vars.NEXT_PUBLIC_PAYMENT_MOCK_MODE || 'false' }}
+          tags: |
+            ${{ steps.meta.outputs.image }}:latest
+            ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.sha }}
+
+  deploy:
+    needs: image
+    if: ${{ vars.DEPLOY_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1
+        env:
+          APP_IMAGE: ${{ needs.image.outputs.image }}:${{ needs.image.outputs.sha }}
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: APP_IMAGE
+          script: |
+            set -e
+            cd ~/10badv
+            export APP_IMAGE
+            docker compose -f docker-compose.prod.yml pull app
+            docker compose -f docker-compose.prod.yml up -d
+            docker image prune -f

@@ -45,8 +45,8 @@ export default function PointsWithdrawPage() {
       return;
     }
 
-    if (amount < 10000) {
-      alert('최소 인출 금액은 1만원입니다.');
+    if (amount < 50000) {
+      alert('최소 인출 금액은 5만원입니다.');
       return;
     }
 

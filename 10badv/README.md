@@ -94,6 +94,9 @@ npm run dev
 │   ├── components/       # 공통 컴포넌트
 │   │   ├── ui/           # 기본 UI (Button, Card, Input)
 │   │   └── ...
+│   ├── domain/           # 업무 규칙 (돈이 움직이는 로직)
+│   │   ├── points/       # 포인트 원장
+│   │   └── escrow/       # 에스크로 정책·서비스·자동정산
 │   ├── features/         # 기능별 모듈
 │   │   ├── chat/         # 채팅 기능
 │   │   ├── portfolio/    # 포트폴리오 기능
@@ -104,7 +107,10 @@ npm run dev
 │   └── utils/            # 헬퍼 함수
 ├── public/
 │   └── uploads/          # 파일 업로드 저장소
-├── server.js             # Socket.io 커스텀 서버
+├── server.js             # 커스텀 서버 (Next.js + Socket.io + 자동정산 스케줄러)
+├── Dockerfile            # 운영 이미지
+├── docker-compose.yml    # 로컬: 앱 + MySQL
+├── docker-compose.prod.yml  # 운영: 앱 + MySQL + Caddy(HTTPS)
 └── package.json
 ```
 
@@ -157,11 +163,14 @@ npm start
 | `jest.config.js` | Jest 테스트 설정 |
 | `.eslintrc.json` | ESLint 설정 |
 | `.prettierrc` | Prettier 설정 |
-| `server.js` | Socket.io 커스텀 서버 |
+| `server.js` | 커스텀 서버 (Next.js + Socket.io + 자동정산 스케줄러) |
+| `src/instrumentation.js` | 서버 시작 시 DB 스키마 초기화 |
+| `vercel.json` | Vercel 설정, 자동정산 크론 |
 
 ## 📚 더 자세한 문서
 
 - [시스템 아키텍처](../docs/ARCHITECTURE.md)
 - [데이터베이스 ERD](../docs/ERD.md)
+- [에스크로 자동정산](../docs/ESCROW.md)
 - [배포 가이드](../docs/DEPLOYMENT.md)
 - [기여 가이드](../docs/CONTRIBUTING.md)

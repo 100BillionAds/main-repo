@@ -277,83 +277,57 @@ io.on('connection', (socket) => {
 
 ### 4️⃣ Business Logic Layer (비즈니스 로직 레이어)
 
-**서비스 모듈:**
-- **Portfolio Service**: 포트폴리오 등록, 수정, 삭제, 조회
-- **Payment Service**: 결제 생성, 검증, 취소, 에스크로 처리
-- **Chat Service**: 채팅방 생성, 메시지 전송, 읽음 처리
-- **User Service**: 사용자 CRUD, 역할 관리
+업무 규칙은 `10badv/src/domain` 에 모여 있고, API 라우트는 인증과 입출력만 맡습니다.
 
-**핵심 비즈니스 로직:**
+```
+src/domain/
+├── errors.js                 # DomainError (규칙 위반 + HTTP 상태 코드)
+├── points/ledger.js          # 포인트 원장: 잔액을 바꾸는 유일한 통로
+└── escrow/
+    ├── policy.js             # 순수 규칙: 상태 전환, 권한, 수수료, 자동정산 기한
+    └── escrowService.js      # 보관 / 상태 변경 / 정산 / 환불 / 자동정산 배치
+```
 
-**1) 결제 검증 및 채팅방 생성 (ACID 트랜잭션)**
+**라우트와 서비스의 관계**
+
 ```javascript
-async function verifyPaymentAndCreateChatRoom(imp_uid, merchant_uid) {
-  const connection = await pool.getConnection();
-  
+// src/app/api/transactions/[id]/route.js
+export async function PATCH(request, { params }) {
   try {
-    await connection.beginTransaction(); // START TRANSACTION
-    
-    // 1. Portone API 결제 검증
-    const paymentData = await axios.get(`https://api.portone.io/payments/${imp_uid}`);
-    
-    // 2. DB 결제 레코드 업데이트
-    await connection.query(`
-      UPDATE payments 
-      SET status = 'completed', imp_uid = ?, paid_at = NOW()
-      WHERE merchant_uid = ?
-    `, [imp_uid, merchant_uid]);
-    
-    // 3. 채팅방 자동 생성
-    const [result] = await connection.query(`
-      INSERT INTO chat_rooms (payment_id, designer_id, client_id, portfolio_id)
-      SELECT p.id, pf.designer_id, p.user_id, pf.id
-      FROM payments p
-      JOIN portfolios pf ON p.portfolio_id = pf.id
-      WHERE p.merchant_uid = ?
-    `, [merchant_uid]);
-    
-    await connection.commit(); // COMMIT
-    return { success: true, roomId: result.insertId };
-    
+    const session = await getServerSession(authOptions);        // 1. 인증
+    if (!session) return NextResponse.json({ ... }, { status: 401 });
+
+    const { id } = await params;
+    const { status } = await request.json();                    // 2. 입력
+
+    const result = await changeTransactionStatus({              // 3. 도메인 서비스 호출
+      transactionId: id,
+      actor: { id: session.user.id, role: session.user.role },
+      status,
+    });
+
+    return NextResponse.json({ success: true, transaction: result });
   } catch (error) {
-    await connection.rollback(); // ROLLBACK
-    throw error;
-  } finally {
-    connection.release();
+    return errorResponse(error, '거래 상태 업데이트에 실패했습니다.'); // 4. DomainError → 상태 코드
   }
 }
 ```
 
-**2) 실시간 채팅 메시지 처리**
-```javascript
-socket.on('sendMessage', async (data) => {
-  const { roomId, senderId, content } = data;
-  
-  // DB 저장 우선
-  const [result] = await connection.query(`
-    INSERT INTO chat_messages (room_id, sender_id, content)
-    VALUES (?, ?, ?)
-  `, [roomId, senderId, content]);
-  
-  // 채팅방 마지막 메시지 업데이트
-  await connection.query(`
-    UPDATE chat_rooms 
-    SET last_message = ?, last_message_at = NOW()
-    WHERE id = ?
-  `, [content, roomId]);
-  
-  // Socket.io 브로드캐스트 (DB 저장 후)
-  io.to(roomId).emit('newMessage', {
-    id: result.insertId,
-    roomId,
-    senderId,
-    content,
-    created_at: new Date()
-  });
-});
-```
+**핵심 흐름**
 
----
+| 흐름 | 서비스 함수 | 돈의 움직임 |
+|------|-------------|-------------|
+| 포인트 충전 | `payments/verify` 라우트 + `ledger.creditPoints` | PortOne 결제 확인 후 포인트 적립 |
+| 포트폴리오 구매 | `purchasePortfolio` | 구매자 포인트 차감 → 에스크로 보관 |
+| 제안 수락 | `decideProposal` | 구매자 포인트 차감 → 에스크로 보관 |
+| 구매확정 | `changeTransactionStatus` | 보관금 − 수수료 → 디자이너 |
+| 취소 | `changeTransactionStatus` | 보관금 전액 → 구매자 |
+| 자동정산 | `runAutoSettlement` | 기한 경과 시 위의 구매확정/취소를 시스템이 수행 |
+| 인출 신청 | `points/withdraw` 라우트 + `ledger.debitPoints` | 포인트 + 수수료 차감, 송금은 수동 |
+
+상태 전환 표, 기한, 동시성 규칙은 [ESCROW.md](./ESCROW.md) 에 있습니다.
+
+아직 도메인 계층으로 옮기지 않은 영역(포트폴리오, 의뢰, 채팅, 후기, 관리자)은 라우트 안에 SQL 이 직접 들어 있습니다. 돈이 움직이지 않는 영역이라 뒤로 미뤘고, 같은 방식으로 옮길 수 있습니다.
 
 ### 5️⃣ Data Access Layer (데이터 접근 레이어)
 
@@ -562,12 +536,15 @@ export async function POST(request) {
 
 ### 1. Authentication (인증)
 - **NextAuth.js**: JWT 기반 세션
-- **bcrypt**: 비밀번호 해싱 (개발: 평문, 프로덕션: bcrypt)
+- **bcrypt**: 비밀번호 해싱
 - **Session Cookie**: httpOnly, secure, sameSite
 
 ### 2. Authorization (권한)
 - **Role-based Access Control**: admin, user, designer
 - **API Route Protection**: `getServerSession()` 검증
+- **Socket.io 인증**: 핸드셰이크의 NextAuth 세션 쿠키를 서버가 직접 검증. 클라이언트가 보낸 사용자 ID 는 쓰지 않음
+- **채팅방 접근**: 참여자인지 DB 로 확인한 뒤에만 소켓 룸에 입장
+- **자동정산 API**: `CRON_SECRET` Bearer 토큰 또는 관리자 세션
 
 ### 3. Input Validation
 - **SQL Injection 방지**: Prepared Statements (mysql2 `?` placeholder)
@@ -577,7 +554,9 @@ export async function POST(request) {
 ### 4. Payment Security
 - **Server-side Verification**: Portone API 서버 검증 필수
 - **Amount Validation**: 클라이언트 금액과 서버 금액 비교
-- **Idempotency**: merchant_uid UNIQUE 제약조건
+- **Idempotency**: merchant_uid UNIQUE 제약조건, 결제 행 잠금 후 상태 재확인
+- **Escrow**: 정산·환불은 거래 행을 잠근 트랜잭션 안에서 `escrow_status = 'held'` 일 때만 실행
+- **Ledger**: 포인트 원장 `(reference_type, reference_id, type)` UNIQUE 로 중복 지급 차단
 
 ---
 
@@ -627,25 +606,19 @@ localhost:3000 (Next.js Dev Server)
 
 ### Production (프로덕션 환경)
 ```
-Node.js 프로세스
-├── server.js (Custom Server)
-├── Socket.io Server
-└── Next.js Production Build
+GitHub Actions (ci → cd)
+└── 이미지 빌드 → GHCR → SSH 배포
 
-MySQL 8.0 (별도 서버)
-├── InnoDB Engine
-├── Connection Pool
-└── Replication (향후)
-
-File Storage
-└── /public/uploads/ (향후 S3 마이그레이션)
+서버 (docker compose)
+├── caddy   : HTTPS 자동 발급, 리버스 프록시 (WebSocket 포함)
+├── app     : node server.js
+│   ├── Next.js Production Build
+│   ├── Socket.io Server (세션 쿠키 인증)
+│   └── 자동정산 스케줄러 (10분 주기로 /api/cron/settle 호출)
+└── db      : MySQL 8.0 (볼륨에 데이터 저장)
 ```
 
-**배포 명령어:**
-```bash
-npm run build      # Next.js 빌드
-NODE_ENV=production node server.js  # 프로덕션 서버 실행
-```
+자세한 절차는 [DEPLOYMENT.md](./DEPLOYMENT.md) 를 참고하세요.
 
 ---
 

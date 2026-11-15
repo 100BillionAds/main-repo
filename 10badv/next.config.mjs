@@ -5,7 +5,8 @@ const nextConfig = {
 
   // 프로덕션 최적화
   compiler: {
-    removeConsole: process.env.NODE_ENV === 'production',
+    // 운영에서도 오류/경고 로그는 남긴다 (장애 원인 추적용)
+    removeConsole: process.env.NODE_ENV === 'production' ? { exclude: ['error', 'warn'] } : false,
   },
 
   // 이미지 최적화

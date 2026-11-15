@@ -1,0 +1,67 @@
+# 운영 서버용: GHCR 이미지 + MySQL + Caddy(HTTPS 자동 발급, WebSocket 프록시)
+#
+# 서버의 ~/10badv 폴더에 이 파일, Caddyfile, .env 를 두고 실행한다.
+#   docker compose -f docker-compose.prod.yml pull
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# .env 필수 값: APP_IMAGE, DOMAIN, DATABASE_PASSWORD, MYSQL_ROOT_PASSWORD,
+#               NEXTAUTH_SECRET, CRON_SECRET (그 외는 .env.example 참고)
+
+services:
+  app:
+    image: ${APP_IMAGE:?APP_IMAGE 를 설정하세요 (예: ghcr.io/100billionads/main-repo:latest)}
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ""
+      DATABASE_HOST: db
+      DATABASE_PORT: 3306
+      DATABASE_USER: ${DATABASE_USER:-app}
+      DATABASE_NAME: ${DATABASE_NAME:-tenbadv}
+      DATABASE_SSL: "false"
+      NEXTAUTH_URL: https://${DOMAIN:?DOMAIN 을 설정하세요}
+      NEXT_PUBLIC_SOCKET_URL: https://${DOMAIN}
+    expose:
+      - "3000"
+    restart: unless-stopped
+
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD 를 설정하세요}
+      MYSQL_DATABASE: ${DATABASE_NAME:-tenbadv}
+      MYSQL_USER: ${DATABASE_USER:-app}
+      MYSQL_PASSWORD: ${DATABASE_PASSWORD:?DATABASE_PASSWORD 를 설정하세요}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  mysql_data:
+  caddy_data:
+  caddy_config:

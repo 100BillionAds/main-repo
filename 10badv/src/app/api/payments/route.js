@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import pool from '@/lib/db';
+import { toPositiveInteger } from '@/domain/errors';
+
+const MAX_CHARGE_AMOUNT = 10000000;
 
 // POST: 결제 준비 (결제 정보 생성)
 export async function POST(request) {
@@ -13,7 +16,7 @@ export async function POST(request) {
 
     const { amount, payment_method = 'card', order_name, portfolio_id } = await request.json();
 
-    if (!amount || amount <= 0) {
+    if (!toPositiveInteger(amount) || amount > MAX_CHARGE_AMOUNT) {
       return NextResponse.json({ success: false, error: '유효하지 않은 금액입니다.' }, { status: 400 });
     }
 
@@ -54,8 +57,8 @@ export async function GET(request) {
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
-    const page = parseInt(searchParams.get('page') || '1', 10);
-    const limit = Math.max(1, Math.min(50, parseInt(searchParams.get('limit') || '20', 10)));
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
+    const limit = Math.max(1, Math.min(50, parseInt(searchParams.get('limit') || '20', 10) || 20));
     const offset = (page - 1) * limit;
 
     let query = 'SELECT * FROM payments WHERE user_id = ?';

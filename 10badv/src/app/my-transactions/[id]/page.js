@@ -253,6 +253,23 @@ export default function MyTransactionDetailPage({ params }) {
         <span style={{ color: '#666' }}>등록일: {new Date(transaction.created_at).toLocaleDateString()}</span>
       </div>
 
+      {/* 에스크로 자동정산 안내 */}
+      {transaction.status === 'awaiting_confirmation' && transaction.auto_confirm_at && (
+        <div style={{ marginBottom: '1.5rem', padding: '0.75rem 1rem', background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: '0.5rem', color: '#5b21b6' }}>
+          ⏱ {new Date(transaction.auto_confirm_at).toLocaleString()}까지 구매확정 또는 수정 요청이 없으면 자동으로 구매확정되어 디자이너에게 대금이 정산됩니다.
+        </div>
+      )}
+      {transaction.status === 'pending' && transaction.auto_cancel_at && (
+        <div style={{ marginBottom: '1.5rem', padding: '0.75rem 1rem', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '0.5rem', color: '#92400e' }}>
+          ⏱ {new Date(transaction.auto_cancel_at).toLocaleString()}까지 디자이너가 작업을 시작하지 않으면 거래가 자동 취소되고 결제 포인트가 전액 환불됩니다.
+        </div>
+      )}
+      {transaction.settled_by === 'auto' && (
+        <div style={{ marginBottom: '1.5rem', padding: '0.75rem 1rem', background: '#f3f4f6', border: '1px solid #e5e7eb', borderRadius: '0.5rem', color: '#374151' }}>
+          {transaction.status === 'completed' ? '기한 경과로 자동 구매확정된 거래입니다.' : '기한 경과로 자동 취소·환불된 거래입니다.'}
+        </div>
+      )}
+
       <div style={{ display: 'grid', gap: '1rem', marginBottom: '2rem' }}>
         <div>
           <strong>포트폴리오:</strong> {transaction.portfolio_title || `#${transaction.portfolio_id}`}

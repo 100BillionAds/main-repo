@@ -1,262 +1,216 @@
 # 백억광고 (100BillionAds) ERD
 
+스키마의 기준은 `10badv/src/lib/db.js` 의 `initializeDatabase()` 입니다. 서버가 시작될 때(`src/instrumentation.js`) 테이블이 없으면 만들고, 누락된 컬럼과 인덱스를 보강합니다.
+
 ## Entity Relationship Diagram
 
 ```mermaid
 erDiagram
-    users ||--o{ portfolios : "creates"
-    users ||--o{ payments : "makes"
-    users ||--o{ chat_rooms : "designer"
-    users ||--o{ chat_rooms : "client"
-    users ||--o{ chat_messages : "sends"
-    users ||--o{ chat_participants : "participates"
-    portfolios ||--o{ portfolio_images : "has"
-    portfolios ||--o{ chat_rooms : "discusses"
-    payments ||--o| chat_rooms : "activates"
-    chat_rooms ||--o{ chat_messages : "contains"
-    chat_rooms ||--o{ chat_participants : "includes"
+    users ||--o{ portfolios : "등록"
+    users ||--o{ requests : "의뢰"
+    users ||--o{ proposals : "제안"
+    users ||--o{ transactions : "구매자/디자이너"
+    users ||--o{ point_transactions : "포인트 기록"
+    users ||--o{ payments : "충전 결제"
+    users ||--o{ reviews : "작성/대상"
+    users ||--o{ chat_rooms : "참여"
+    users ||--o{ chat_messages : "발신"
+    users ||--o{ bug_reports : "신고"
+    portfolios ||--o{ portfolio_images : "이미지"
+    portfolios ||--o{ transactions : "구매"
+    requests ||--o{ proposals : "받은 제안"
+    proposals ||--o| transactions : "수락 시 생성"
+    transactions ||--o{ reviews : "후기"
+    chat_rooms ||--o{ chat_messages : "메시지"
 
     users {
         INT id PK
-        VARCHAR username UK "고유 아이디"
-        VARCHAR password "비밀번호"
-        VARCHAR name "이름"
-        VARCHAR email "이메일"
-        VARCHAR avatar_url "프로필 이미지"
+        VARCHAR username UK
+        VARCHAR password "bcrypt 해시"
+        VARCHAR name
+        VARCHAR email
         ENUM role "admin/user/designer"
-        TIMESTAMP created_at
-        TIMESTAMP updated_at
+        TEXT avatar_url
+        TEXT bio
+        VARCHAR phone
+        INT points "포인트 잔액"
+        DECIMAL rating
+        INT review_count
+        ENUM status "active/suspended/deleted"
     }
 
     portfolios {
         INT id PK
-        INT designer_id FK "디자이너 ID"
-        VARCHAR title "포트폴리오 제목"
-        TEXT description "설명"
-        VARCHAR category "카테고리"
-        INT price "가격"
-        VARCHAR thumbnail_url "썸네일"
+        INT designer_id FK
+        TEXT title
+        TEXT description
+        VARCHAR category
+        INT price
+        TEXT thumbnail_url
         ENUM status "pending/approved/rejected"
-        INT views "조회수"
-        INT likes "좋아요"
-        TIMESTAMP created_at
-        TIMESTAMP updated_at
+        INT views
+        INT likes
     }
 
     portfolio_images {
         INT id PK
-        INT portfolio_id FK "포트폴리오 ID"
-        VARCHAR image_url "이미지 URL"
-        INT display_order "표시 순서"
-        TIMESTAMP created_at
+        INT portfolio_id FK
+        TEXT image_url
+        INT display_order
+    }
+
+    requests {
+        INT id PK
+        INT client_id FK
+        TEXT title
+        TEXT description
+        VARCHAR category
+        INT budget
+        JSON tags
+        ENUM status "OPEN/MATCHED/COMPLETED/CANCELLED"
+    }
+
+    proposals {
+        INT id PK
+        INT request_id FK
+        INT designer_id FK
+        TEXT message
+        INT offer_price
+        ENUM status "PENDING/ACCEPTED/REJECTED"
+    }
+
+    transactions {
+        INT id PK
+        INT portfolio_id FK "포트폴리오 구매일 때"
+        INT proposal_id FK "제안 수락일 때"
+        INT buyer_id FK
+        INT designer_id FK
+        INT amount "보관 금액"
+        INT commission "정산 시 수수료"
+        ENUM status "pending/in_progress/awaiting_confirmation/completed/cancelled"
+        VARCHAR payment_method
+        ENUM payment_status "pending/completed/failed/refunded"
+        ENUM escrow_status "none/held/released/refunded"
+        ENUM settled_by "buyer/designer/admin/auto"
+        VARCHAR cancel_reason
+        DATETIME started_at
+        DATETIME submitted_at
+        DATETIME auto_confirm_at "자동 구매확정 기한"
+        DATETIME auto_cancel_at "자동 취소 기한"
+        DATETIME completed_at
+        DATETIME cancelled_at
+    }
+
+    point_transactions {
+        INT id PK
+        INT user_id FK
+        ENUM type "charge/use/earn/refund/withdraw"
+        INT amount
+        INT fee
+        INT balance_after
+        TEXT description
+        VARCHAR reference_type "payment/transaction"
+        INT reference_id
+        ENUM status "pending/completed/failed/cancelled"
     }
 
     payments {
         INT id PK
-        INT user_id FK "결제자 ID"
-        VARCHAR merchant_uid UK "가맹점 주문번호"
-        VARCHAR imp_uid "포트원 결제 고유번호"
-        INT amount "결제 금액"
-        VARCHAR payment_method "결제 수단"
-        VARCHAR order_name "주문명"
-        ENUM status "pending/completed/failed/cancelled"
-        VARCHAR pg_provider "PG사"
-        VARCHAR pg_tid "PG 거래번호"
-        VARCHAR card_name "카드사"
-        DATETIME paid_at "결제 완료 시간"
-        DATETIME failed_at "결제 실패 시간"
-        DATETIME cancelled_at "결제 취소 시간"
-        TEXT fail_reason "실패 사유"
-        TEXT cancel_reason "취소 사유"
-        DATETIME created_at
-        DATETIME updated_at
+        INT user_id FK
+        VARCHAR merchant_uid UK
+        VARCHAR imp_uid "PortOne 결제 ID"
+        TEXT order_name
+        INT amount
+        VARCHAR payment_method
+        ENUM status "pending/completed/failed/refunded"
+        INT portfolio_id FK
+        VARCHAR pg_provider
+        VARCHAR pg_tid
+        VARCHAR card_name
+        TIMESTAMP paid_at
+    }
+
+    reviews {
+        INT id PK
+        INT transaction_id FK
+        INT reviewer_id FK
+        INT designer_id FK
+        INT rating "1~5"
+        TEXT comment
     }
 
     chat_rooms {
         INT id PK
-        INT payment_id FK "결제 ID (nullable)"
-        INT designer_id FK "디자이너 ID"
-        INT client_id FK "고객/광고주 ID"
-        INT portfolio_id FK "포트폴리오 ID (nullable)"
-        TEXT last_message "마지막 메시지"
-        DATETIME last_message_at "마지막 메시지 시간"
-        BOOLEAN is_active "활성 상태"
-        DATETIME created_at
-        DATETIME updated_at
+        INT user1_id FK "두 참여자 중 작은 ID"
+        INT user2_id FK "두 참여자 중 큰 ID"
+        INT portfolio_id
+        INT transaction_id
+        INT payment_id
+        TEXT last_message
+        TIMESTAMP last_message_at
     }
 
     chat_messages {
         INT id PK
-        INT room_id FK "채팅방 ID"
-        INT sender_id FK "발신자 ID"
+        INT room_id FK
+        INT sender_id FK
+        TEXT message
         ENUM message_type "text/image/file"
-        TEXT content "메시지 내용"
-        VARCHAR file_url "파일/이미지 URL"
-        VARCHAR file_name "원본 파일명"
-        INT file_size "파일 크기(bytes)"
-        BOOLEAN is_read "읽음 여부"
-        DATETIME read_at "읽은 시간"
-        DATETIME created_at
+        TEXT file_url
+        VARCHAR file_name
+        INT file_size
+        TINYINT is_read
     }
 
-    chat_participants {
+    bug_reports {
         INT id PK
-        INT room_id FK "채팅방 ID"
-        INT user_id FK "사용자 ID"
-        BOOLEAN is_buyer "구매자 여부"
-        DATETIME joined_at "참여 시간"
-        DATETIME last_read_at "마지막 읽은 시간"
-        INT unread_count "읽지 않은 메시지 수"
+        INT user_id FK
+        VARCHAR title
+        TEXT description
+        TEXT page_url
+        TEXT screenshot_url
+        ENUM severity "low/medium/high/critical"
+        ENUM status "open/in_progress/resolved/closed"
+        TEXT admin_note
     }
 ```
+
+모든 테이블에 `created_at` 이 있고, 대부분 `updated_at` 도 있습니다 (다이어그램에서는 생략).
 
 ## 테이블 설명
 
-### 1. users (사용자)
-- **역할**: 플랫폼의 모든 사용자 정보 관리
-- **주요 필드**:
-  - `role`: admin(관리자), user(일반 사용자/광고주), designer(디자이너)
-  - `avatar_url`: 프로필 이미지 경로
-- **관계**: 포트폴리오, 결제, 채팅의 중심 엔티티
+| 테이블 | 역할 |
+|--------|------|
+| `users` | 광고주(`user`), 디자이너(`designer`), 관리자(`admin`). `points` 가 포인트 잔액 |
+| `portfolios`, `portfolio_images` | 디자이너가 올린 작품. 관리자 승인(`approved`) 후 구매 가능 |
+| `requests`, `proposals` | 광고주의 의뢰와 디자이너의 제안. 제안을 수락하면 거래가 생김 |
+| `transactions` | 거래 한 건. 에스크로 보관·정산·환불의 단위 ([ESCROW.md](./ESCROW.md)) |
+| `point_transactions` | 포인트 원장. 잔액이 바뀔 때마다 한 줄씩 남음 |
+| `payments` | PortOne 포인트 충전 결제 |
+| `reviews` | 거래 후기. 거래당 작성자 1건 |
+| `chat_rooms`, `chat_messages` | 1:1 채팅 |
+| `bug_reports` | 오류 신고 |
 
-### 2. portfolios (포트폴리오)
-- **역할**: 디자이너가 등록한 디자인 작품 관리
-- **주요 필드**:
-  - `status`: pending(대기), approved(승인), rejected(거부)
-  - `price`: 포트폴리오 가격
-  - `views`, `likes`: 조회수, 좋아요 수
-- **관계**: 디자이너(users)가 생성, 여러 이미지 포함
+## 돈과 관련된 규칙
 
-### 3. portfolio_images (포트폴리오 이미지)
-- **역할**: 포트폴리오의 이미지 파일들 관리
-- **주요 필드**:
-  - `display_order`: 이미지 표시 순서
-  - `image_url`: 이미지 저장 경로
-- **관계**: 하나의 포트폴리오에 여러 이미지 첨부 가능
+- `users.points` 는 `src/domain/points/ledger.js` 를 통해서만 바뀌고, 바뀔 때마다 `point_transactions` 에 기록됩니다.
+- `point_transactions` 의 `(reference_type, reference_id, type)` 은 유니크입니다. 한 거래에 `use`, `earn`, `refund` 가 각각 한 번, 한 결제에 `charge` 가 한 번만 남습니다. 인출(`withdraw`)은 참조가 없어 제약을 받지 않습니다.
+- `transactions.escrow_status` 가 `held` 인 거래만 정산하거나 환불할 수 있습니다.
+- 수수료는 정산 시점에 계산해 `transactions.commission` 에 남깁니다.
 
-### 4. payments (결제)
-- **역할**: 포트원(Portone) 결제 내역 관리
-- **주요 필드**:
-  - `merchant_uid`: 가맹점 주문번호 (UNIQUE)
-  - `imp_uid`: 포트원 결제 고유번호
-  - `status`: pending(대기), completed(완료), failed(실패), cancelled(취소)
-  - `pg_provider`: PG사 정보
-- **관계**: 결제 완료 시 채팅방 활성화
+## 주요 인덱스
 
-### 5. chat_rooms (채팅방)
-- **역할**: 디자이너-클라이언트 간 1:1 채팅방 관리
-- **주요 필드**:
-  - `payment_id`: 결제 후 생성된 채팅방 (nullable)
-  - `is_active`: 활성 상태
-  - `last_message_at`: 최근 메시지 시간
-- **관계**: 
-  - 결제 완료 시 자동 생성
-  - 디자이너와 클라이언트 간 1:1 매칭
+| 테이블 | 인덱스 | 용도 |
+|--------|--------|------|
+| `transactions` | `(status, auto_confirm_at)`, `(status, auto_cancel_at)` | 자동정산 대상 조회 |
+| `transactions` | `buyer_id`, `designer_id`, `status`, `created_at` | 내 거래 목록 |
+| `point_transactions` | `(user_id, created_at)` | 포인트 내역 |
+| `point_transactions` | `(reference_type, reference_id, type)` UNIQUE | 중복 기록 방지 |
+| `chat_messages` | `(room_id, created_at)`, `(room_id, sender_id, is_read)` | 대화 조회, 안 읽은 메시지 |
+| `portfolios` | `(designer_id, status)`, `category`, `status`, `created_at` | 목록·필터 |
 
-### 6. chat_messages (채팅 메시지)
-- **역할**: 실시간 채팅 메시지 저장
-- **주요 필드**:
-  - `message_type`: text(텍스트), image(이미지), file(파일)
-  - `is_read`: 읽음 여부
-  - `file_url`, `file_name`, `file_size`: 파일 첨부 정보
-- **관계**: Socket.io로 실시간 전송, DB에 영구 저장
+## 스키마 변경 방법
 
-### 7. chat_participants (채팅 참여자)
-- **역할**: 채팅방 참여자 정보 및 읽음 상태 관리
-- **주요 필드**:
-  - `is_buyer`: 결제 완료한 구매자 여부
-  - `unread_count`: 읽지 않은 메시지 수
-  - `last_read_at`: 마지막 읽은 시간
-- **관계**: 채팅방과 사용자의 다대다(M:N) 관계 중재
-
-## 핵심 비즈니스 로직
-
-### 1. 결제 → 채팅방 생성 흐름
-```
-1. 사용자가 포트폴리오 결제 (payments 테이블 INSERT)
-2. 결제 완료 시 (status = 'completed')
-3. chat_rooms 자동 생성 (payment_id, designer_id, client_id 연결)
-4. Socket.io로 실시간 채팅 활성화
-```
-
-### 2. 채팅 메시지 저장 패턴
-```
-1. 사용자 메시지 전송 (Socket.io)
-2. DB에 먼저 저장 (chat_messages INSERT)
-3. 저장 성공 후 상대방에게 Socket 브로드캐스트
-4. 메시지 손실 방지: DB 저장 우선, Socket은 알림 용도
-```
-
-### 3. 읽지 않은 메시지 카운트
-```
-1. chat_participants의 unread_count 활용
-2. 메시지 수신 시 unread_count + 1
-3. 사용자가 채팅방 입장 시 unread_count = 0, last_read_at 업데이트
-4. 실시간 알림: Socket.io로 unread_count 변경 브로드캐스트
-```
-
-## 기술 스택
-
-### Database
-- **MySQL 8.0**: 관계형 데이터베이스
-- **InnoDB Engine**: ACID 트랜잭션 보장
-- **utf8mb4 Charset**: 이모지 포함 전체 UTF-8 지원
-
-### Indexes
-- **Primary Keys**: 모든 테이블의 `id` 컬럼
-- **Foreign Keys**: ON DELETE CASCADE/SET NULL로 참조 무결성 보장
-- **Performance Indexes**: 
-  - `users.username` (UNIQUE)
-  - `payments.merchant_uid` (UNIQUE)
-  - `chat_rooms.payment_id` (UNIQUE)
-  - 검색/필터링 성능 최적화 인덱스 다수
-
-### Constraints
-- **UNIQUE**: username, merchant_uid, room-user 조합
-- **ENUM**: status, role, message_type 등 제한된 값 강제
-- **CASCADE**: 부모 삭제 시 자식 레코드 자동 삭제
-- **SET NULL**: 부모 삭제 시 FK를 NULL로 설정
-
-## 데이터 무결성
-
-### 1. 외래 키 제약조건
-- 모든 FK는 `FOREIGN KEY ... REFERENCES` 선언
-- 부모 테이블 삭제 시 자동 처리: CASCADE 또는 SET NULL
-
-### 2. Enum 타입 활용
-- `users.role`: 역할 제한 (admin/user/designer)
-- `payments.status`: 결제 상태 명확화
-- `chat_messages.message_type`: 메시지 타입 제한
-
-### 3. 트랜잭션 보장
-- 결제 + 채팅방 생성: BEGIN → INSERT payments → INSERT chat_rooms → COMMIT
-- 에러 발생 시 ROLLBACK으로 데이터 일관성 유지
-
-### 4. 동시성 제어
-- `FOR UPDATE` 락으로 동시 결제 충돌 방지
-- InnoDB Row-Level Locking으로 동시 접근 제어
-
-## ERD 다이어그램 보는 법
-
-- **||--o{**: 일대다(1:N) 관계
-- **||--o|**: 일대일(1:1) 관계 (nullable)
-- **PK**: Primary Key (기본 키)
-- **FK**: Foreign Key (외래 키)
-- **UK**: Unique Key (고유 키)
-- **ENUM**: 제한된 값만 허용
-- **BOOLEAN**: TRUE/FALSE
-
-## Mermaid ERD 렌더링
-
-위의 Mermaid 다이어그램은 다음 플랫폼에서 렌더링 가능합니다:
-- GitHub README.md (자동 렌더링)
-- [Mermaid Live Editor](https://mermaid.live/)
-- VS Code Markdown Preview (Mermaid 플러그인)
-- Notion, Confluence 등 (Mermaid 지원 플랫폼)
-
-## 파일 위치
-
-- 사용자 아바타: `/public/uploads/avatars/`
-- 포트폴리오 썸네일: `/public/uploads/portfolios/thumbnails/`
-- 포트폴리오 이미지: `/public/uploads/portfolios/images/`
-- 채팅 이미지: `/public/uploads/chat/`
+1. `initializeDatabase()` 의 `CREATE TABLE` 문에 컬럼을 추가합니다 (새 DB 용).
+2. 같은 함수에 `ensureColumn(...)` 호출을 추가합니다 (기존 DB 업그레이드용).
+3. 수동 적용이 필요한 환경을 위해 `10badv/migrations/` 에 같은 내용의 SQL 을 남깁니다.
