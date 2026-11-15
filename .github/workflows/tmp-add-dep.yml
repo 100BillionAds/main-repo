@@ -1,0 +1,24 @@
+# 임시: 잠금 파일 갱신용. 이 브랜치에서만 쓰고 PR 전에 삭제한다.
+name: tmp-add-dep
+on:
+  push:
+    branches: [feat/outbox-queue]
+    paths: ['.github/workflows/tmp-add-dep.yml']
+permissions:
+  contents: write
+jobs:
+  add:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+      - working-directory: 10badv
+        run: npm install bullmq@^5 --package-lock-only --ignore-scripts
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add 10badv/package.json 10badv/package-lock.json
+          git commit -m "chore(deps): bullmq 추가"
+          git push
