@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { readSse } from '@/lib/sse';
-import { parseDraft } from '@/domain/ai/requestDraft';
+// [AI 초안 작성 숨김] import { readSse } from '@/lib/sse';
+// [AI 초안 작성 숨김] import { parseDraft } from '@/domain/ai/requestDraft';
 import styles from './CreateRequestPage.module.css';
 
 export default function CreateRequestPage() {
@@ -19,52 +19,53 @@ export default function CreateRequestPage() {
   });
   const [tagInput, setTagInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [brief, setBrief] = useState('');
-  const [drafting, setDrafting] = useState(false);
-  const [draftError, setDraftError] = useState('');
-
-  // AI 초안: 서버가 글자를 보내는 대로(SSE) 제목·설명 칸에 채워 넣는다.
-  const handleDraft = async () => {
-    if (!session) {
-      alert('로그인이 필요합니다.');
-      router.push('/login');
-      return;
-    }
-
-    setDrafting(true);
-    setDraftError('');
-    try {
-      const response = await fetch('/api/ai/request-draft', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ brief, category: formData.category, budget: formData.budget }),
-      });
-
-      // 입력 오류·한도 초과는 스트림이 시작되기 전에 일반 JSON 으로 온다.
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || 'AI 초안 작성에 실패했습니다.');
-      }
-
-      let text = '';
-      for await (const { event, data } of readSse(response)) {
-        const payload = JSON.parse(data);
-        if (event === 'error') throw new Error(payload.error);
-
-        if (event === 'delta') text += payload.text;
-        const draft = event === 'done' ? payload : parseDraft(text);
-        setFormData((prev) => ({
-          ...prev,
-          title: draft.title || prev.title,
-          description: draft.description || prev.description,
-        }));
-      }
-    } catch (error) {
-      setDraftError(error.message || 'AI 초안 작성에 실패했습니다.');
-    } finally {
-      setDrafting(false);
-    }
-  };
+  // ── AI 초안 작성 기능은 잠시 숨겨 둔다. 다시 켜려면 이 파일의 [AI 초안 작성 숨김] 주석 3곳을 푼다. ──
+  // const [brief, setBrief] = useState('');
+  // const [drafting, setDrafting] = useState(false);
+  // const [draftError, setDraftError] = useState('');
+  //
+  // // AI 초안: 서버가 글자를 보내는 대로(SSE) 제목·설명 칸에 채워 넣는다.
+  // const handleDraft = async () => {
+  //   if (!session) {
+  //     alert('로그인이 필요합니다.');
+  //     router.push('/login');
+  //     return;
+  //   }
+  //
+  //   setDrafting(true);
+  //   setDraftError('');
+  //   try {
+  //     const response = await fetch('/api/ai/request-draft', {
+  //       method: 'POST',
+  //       headers: { 'Content-Type': 'application/json' },
+  //       body: JSON.stringify({ brief, category: formData.category, budget: formData.budget }),
+  //     });
+  //
+  //     // 입력 오류·한도 초과는 스트림이 시작되기 전에 일반 JSON 으로 온다.
+  //     if (!response.ok) {
+  //       const data = await response.json().catch(() => ({}));
+  //       throw new Error(data.error || 'AI 초안 작성에 실패했습니다.');
+  //     }
+  //
+  //     let text = '';
+  //     for await (const { event, data } of readSse(response)) {
+  //       const payload = JSON.parse(data);
+  //       if (event === 'error') throw new Error(payload.error);
+  //
+  //       if (event === 'delta') text += payload.text;
+  //       const draft = event === 'done' ? payload : parseDraft(text);
+  //       setFormData((prev) => ({
+  //         ...prev,
+  //         title: draft.title || prev.title,
+  //         description: draft.description || prev.description,
+  //       }));
+  //     }
+  //   } catch (error) {
+  //     setDraftError(error.message || 'AI 초안 작성에 실패했습니다.');
+  //   } finally {
+  //     setDrafting(false);
+  //   }
+  // };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -136,6 +137,7 @@ export default function CreateRequestPage() {
           </p>
         </div>
 
+        {/* [AI 초안 작성 숨김] 다시 켜려면 이 주석 블록을 푼다.
         <section className={styles.aiPanel}>
           <h2 className={styles.aiTitle}>🤖 AI로 초안 작성</h2>
           <p className={styles.aiHint}>
@@ -163,6 +165,7 @@ export default function CreateRequestPage() {
           </div>
           {draftError && <p className={styles.aiError} role="alert">{draftError}</p>}
         </section>
+        */}
 
         <form onSubmit={handleSubmit} className={styles.form}>
           <div className={styles.formGroup}>
