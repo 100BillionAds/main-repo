@@ -1,62 +1,66 @@
 # 배포 가이드
 
-이 서비스는 커스텀 서버(`server.js`)가 Next.js, Socket.io 채팅, 에스크로 자동정산 스케줄러를 한 프로세스에서 실행합니다. 그래서 상시 실행되는 컨테이너가 필요하고, **현재 운영은 Railway** 에서 합니다.
+이 서비스는 커스텀 서버(`server.js`)가 Next.js, Socket.io 채팅, 에스크로 자동정산 스케줄러를 한 프로세스에서 실행합니다. 그래서 상시 실행되는 컨테이너가 필요합니다. **현재는 무료 조합(Render + TiDB)으로 운영**하고, 사용자가 늘면 Railway 로 옮깁니다. 모두 같은 Docker 이미지를 씁니다.
 
 | 방식 | 채팅 | 자동정산 | 비용 | 상태 |
 |------|------|----------|------|------|
-| Railway (현재) | 됨 | 내장 스케줄러, 10분 주기 | Hobby 월 5달러부터 + 사용량 | 운영 |
-| Docker + 자체 서버 | 됨 | 내장 스케줄러 | 서버 비용 | 이전 대안 (2장) |
-| Vercel | 안 됨 | Vercel Cron, 하루 1회 | 무료부터 | 사용 안 함 (3장) |
+| Render 무료 + TiDB Starter | 됨 (15분 무활동 시 서버 슬립) | GitHub Actions 1시간 주기 + 내장 스케줄러 | 0원 | **운영 중** (0장) |
+| Railway + MySQL | 됨 | 내장 스케줄러 10분 주기 | 월 5달러부터 + 사용량 | 유료 전환 시 (4장) |
+| Docker + 자체 서버 | 됨 | 내장 스케줄러 | 서버 비용 | 대안 (2장) |
+| Vercel | 안 됨 | Vercel Cron 하루 1회 | 0원 | 사용 안 함 (3장) |
 
-## 0. Railway 배포 (현재 운영)
-
-Railway 가 GitHub 저장소를 감시하다가 `main` 에 머지되면 `10badv/Dockerfile` 로 이미지를 빌드해 배포합니다. 설정은 `10badv/railway.json` 에 있습니다 (Dockerfile 빌드, `/api/health` 헬스체크, 실패 시 재시작).
-
-### 0-1. 프로젝트 구성 (최초 1회)
-
-1. Railway 에 GitHub 계정으로 로그인하고 Hobby 플랜을 선택합니다.
-2. New Project → Deploy from GitHub repo → `100BillionAds/main-repo`
-3. 만들어진 서비스의 Settings 에서
-   - **Root Directory**: `/10badv`
-   - **Branch**: `main`
-   - **Wait for CI**: 켬 (GitHub CI 가 통과한 커밋만 배포)
-   - **Region**: 사용자와 가까운 아시아 리전
-4. 같은 프로젝트에 New → Database → **MySQL** 을 추가합니다.
-5. 앱 서비스의 Variables 에 아래를 넣습니다. `${{ }}` 는 Railway 가 다른 서비스 값으로 바꿔 넣는 참조 문법입니다.
+## 0. Render + TiDB 배포 (현재 운영)
 
 ```
-DATABASE_URL=${{MySQL.MYSQL_URL}}
-NEXTAUTH_URL=https://${{RAILWAY_PUBLIC_DOMAIN}}
-NEXTAUTH_SECRET=<openssl rand -base64 32>
-CRON_SECRET=<openssl rand -hex 32>
-SETTLEMENT_INTERVAL_MINUTES=10
-ESCROW_AUTO_CONFIRM_DAYS=7
-ESCROW_AUTO_CANCEL_DAYS=7
-ESCROW_COMMISSION_RATE=0.1
+GitHub main ──(CI 통과)──> Render: Dockerfile 빌드 → 웹 서비스 (싱가포르, 무료)
+                                          │
+                                          └─TLS─> TiDB Cloud Starter (MySQL 호환, 무료)
+GitHub Actions settle (매시 7분) ──> POST /api/cron/settle
 ```
 
-결제와 파일 업로드를 쓸 때 추가합니다.
+### 0-1. TiDB 준비 (최초 1회)
 
-```
-PORTONE_API_SECRET=...
-NEXT_PUBLIC_PORTONE_STORE_ID=...       # 빌드 시점 값. 바꾸면 재배포 필요
-NEXT_PUBLIC_PORTONE_CHANNEL_KEY=...
-STORAGE_PROVIDER=cloudinary
-CLOUDINARY_CLOUD_NAME=...
-CLOUDINARY_API_KEY=...
-CLOUDINARY_API_SECRET=...
-```
+1. tidbcloud.com 에 가입하고 **Starter** 인스턴스를 만듭니다. 리전은 Render 와 가까운 `AWS Singapore (ap-southeast-1)` 로 고릅니다.
+2. 인스턴스의 Connect 화면에서 비밀번호를 생성하고 접속 정보를 확인합니다.
+3. SQL Editor 에서 데이터베이스를 만듭니다: `CREATE DATABASE tenbadv;`
+4. 접속 문자열을 만듭니다: `mysql://<USER>:<PASSWORD>@<HOST>:4000/tenbadv`
+   - 사용자 이름에 점(`.`)이 들어 있는 것이 정상입니다 (예: `2abc.root`).
+   - 비밀번호에 특수문자가 있으면 URL 인코딩합니다.
 
-6. Settings → Networking → Generate Domain 으로 공개 주소(`*.up.railway.app`)를 만듭니다. 나중에 Custom Domain 으로 자기 도메인을 연결할 수 있습니다.
-7. 첫 배포가 끝나면 아래 "배포 후 확인" 을 진행합니다.
+테이블은 앱이 처음 시작될 때 자동으로 만들어집니다. TiDB 호환성은 CI 의 `integration-tidb` 잡이 실제 TiDB 로 통합 테스트를 돌려 확인합니다.
 
-### 0-2. 알아둘 점
+### 0-2. Render 준비 (최초 1회)
 
-- **컨테이너 디스크는 배포마다 초기화됩니다.** 업로드 파일은 Cloudinary(또는 S3)에 저장해야 남습니다. DB 데이터는 MySQL 서비스의 볼륨에 있으므로 유지됩니다.
-- **복제본은 1개로 둡니다** (`numReplicas: 1`). 채팅 소켓이 한 프로세스 안에서만 공유되기 때문입니다. 여러 개로 늘리려면 Socket.io Redis 어댑터가 필요합니다 (로드맵 4단계).
-- **비용**: Hobby 는 월 5달러가 최소 사용료이고 그만큼의 사용량이 포함됩니다. 앱과 MySQL 이 상시 실행되므로 사용량에 따라 그보다 더 나올 수 있습니다. Railway 대시보드의 Usage 에서 확인하고, Usage Limits 로 상한을 걸어 둡니다.
-- **되돌리기**: 서비스의 Deployments 목록에서 이전 배포를 골라 Redeploy 합니다.
-- **백업**: MySQL 서비스의 Backups 탭에서 자동 백업 일정을 켭니다. 직접 받아 두려면 MySQL 서비스 Variables 의 공개 접속 정보(`MYSQLHOST` 대신 TCP Proxy 주소와 포트)로 `mysqldump --single-transaction` 을 실행합니다.
+1. render.com 에 GitHub 계정으로 가입합니다 (카드 불필요).
+2. New → **Blueprint** → `100BillionAds/main-repo` 를 고릅니다. 저장소 루트의 `render.yaml` 이 읽힙니다.
+3. 입력을 요구하는 값에 `DATABASE_URL`(0-1 의 접속 문자열)을 넣습니다. 결제·업로드 값은 나중에 넣어도 됩니다. `NEXTAUTH_SECRET`, `CRON_SECRET` 은 Render 가 자동 생성합니다.
+4. 배포가 끝나면 `https://tenbadv.onrender.com` 같은 주소가 생깁니다. `NEXTAUTH_URL` 은 이 주소로 자동 설정됩니다.
+
+`render.yaml` 은 `autoDeployTrigger: checksPass` 로, GitHub CI 가 통과한 `main` 커밋만 배포합니다.
+
+### 0-3. 자동정산 예약 호출 (최초 1회)
+
+무료 서버는 15분 동안 요청이 없으면 잠들어 내장 스케줄러도 멈춥니다. 그래서 GitHub Actions `settle` 워크플로가 1시간마다 정산 API 를 호출합니다. 저장소 Settings → Secrets and variables → Actions 에서:
+
+| 종류 | 이름 | 값 |
+|------|------|-----|
+| Variable | `APP_URL` | Render 서비스 주소 (예: `https://tenbadv.onrender.com`) |
+| Secret | `CRON_SECRET` | Render 서비스 Environment 의 `CRON_SECRET` 과 같은 값 |
+
+Actions 탭에서 `settle` 을 수동 실행(Run workflow)해 200 응답이 오는지 확인합니다. GitHub 은 60일 동안 저장소 활동이 없으면 예약 워크플로를 멈추므로, 그때는 Actions 탭에서 다시 켭니다.
+
+### 0-4. 무료 운영의 한계
+
+- **슬립**: 15분 동안 요청이 없으면 서버가 잠들고, 다음 첫 요청은 약 1분 걸립니다. 그동안 채팅 연결도 끊깁니다.
+- **자원**: 메모리 512MB, 공유 CPU. 무료 인스턴스 시간은 월 750시간입니다.
+- **디스크**: 배포·재시작·슬립 때마다 초기화됩니다. 업로드 파일은 Cloudinary 에 저장해야 남습니다.
+- **DB 한도**: TiDB Starter 무료 한도(인스턴스당 저장 5GiB, 월 5천만 RU)를 넘으면 쿼리가 제한됩니다. TiDB 콘솔에서 사용량을 확인합니다.
+- **복제본 1개**: 채팅 소켓이 한 프로세스 안에서만 공유되므로 늘리지 않습니다.
+
+### 0-5. 되돌리기와 백업
+
+- 되돌리기: Render 서비스의 Events/Deploys 에서 이전 배포를 골라 Rollback 합니다.
+- 백업: TiDB Starter 는 자동 백업을 제공합니다(콘솔의 Backup). 직접 받아 두려면 `mysqldump -h <HOST> -P 4000 -u <USER> -p --ssl-mode=REQUIRED --single-transaction tenbadv > backup.sql`
 
 ## 1. 로컬에서 Docker 로 실행
 
@@ -188,6 +192,57 @@ docker compose -f docker-compose.prod.yml exec db \
 
 돈이 오가는 서비스이므로 정기 백업을 권합니다.
 
+## 4. Railway 배포 (유료 전환 시)
+
+Render 무료 슬립이 문제가 될 만큼 사용자가 생기면 옮깁니다. `10badv/railway.json` 이 준비되어 있습니다. TiDB 를 그대로 써도 되고(`DATABASE_URL` 유지), Railway MySQL 로 옮겨도 됩니다.
+
+### 4-1. 프로젝트 구성
+
+1. Railway 에 GitHub 계정으로 로그인하고 Hobby 플랜을 선택합니다.
+2. New Project → Deploy from GitHub repo → `100BillionAds/main-repo`
+3. 만들어진 서비스의 Settings 에서
+   - **Root Directory**: `/10badv`
+   - **Branch**: `main`
+   - **Wait for CI**: 켬 (GitHub CI 가 통과한 커밋만 배포)
+   - **Region**: 사용자와 가까운 아시아 리전
+4. 같은 프로젝트에 New → Database → **MySQL** 을 추가합니다.
+5. 앱 서비스의 Variables 에 아래를 넣습니다. `${{ }}` 는 Railway 가 다른 서비스 값으로 바꿔 넣는 참조 문법입니다.
+
+```
+DATABASE_URL=${{MySQL.MYSQL_URL}}
+NEXTAUTH_URL=https://${{RAILWAY_PUBLIC_DOMAIN}}
+NEXTAUTH_SECRET=<openssl rand -base64 32>
+CRON_SECRET=<openssl rand -hex 32>
+SETTLEMENT_INTERVAL_MINUTES=10
+ESCROW_AUTO_CONFIRM_DAYS=7
+ESCROW_AUTO_CANCEL_DAYS=7
+ESCROW_COMMISSION_RATE=0.1
+```
+
+결제와 파일 업로드를 쓸 때 추가합니다.
+
+```
+PORTONE_API_SECRET=...
+NEXT_PUBLIC_PORTONE_STORE_ID=...       # 빌드 시점 값. 바꾸면 재배포 필요
+NEXT_PUBLIC_PORTONE_CHANNEL_KEY=...
+STORAGE_PROVIDER=cloudinary
+CLOUDINARY_CLOUD_NAME=...
+CLOUDINARY_API_KEY=...
+CLOUDINARY_API_SECRET=...
+```
+
+6. Settings → Networking → Generate Domain 으로 공개 주소(`*.up.railway.app`)를 만듭니다. 나중에 Custom Domain 으로 자기 도메인을 연결할 수 있습니다.
+7. 첫 배포가 끝나면 아래 "배포 후 확인" 을 진행합니다.
+
+### 4-2. 알아둘 점
+
+- **컨테이너 디스크는 배포마다 초기화됩니다.** 업로드 파일은 Cloudinary(또는 S3)에 저장해야 남습니다. DB 데이터는 MySQL 서비스의 볼륨에 있으므로 유지됩니다.
+- **복제본은 1개로 둡니다** (`numReplicas: 1`). 채팅 소켓이 한 프로세스 안에서만 공유되기 때문입니다. 여러 개로 늘리려면 Socket.io Redis 어댑터가 필요합니다 (로드맵 4단계).
+- **비용**: Hobby 는 월 5달러가 최소 사용료이고 그만큼의 사용량이 포함됩니다. 앱과 MySQL 이 상시 실행되므로 사용량에 따라 그보다 더 나올 수 있습니다. Railway 대시보드의 Usage 에서 확인하고, Usage Limits 로 상한을 걸어 둡니다.
+- **되돌리기**: 서비스의 Deployments 목록에서 이전 배포를 골라 Redeploy 합니다.
+- **백업**: MySQL 서비스의 Backups 탭에서 자동 백업 일정을 켭니다. 직접 받아 두려면 MySQL 서비스 Variables 의 공개 접속 정보(`MYSQLHOST` 대신 TCP Proxy 주소와 포트)로 `mysqldump --single-transaction` 을 실행합니다.
+
+
 ## 3. Vercel 배포
 
 1. Vercel 에서 저장소를 가져오고 Root Directory 를 `10badv` 로 지정합니다.
@@ -216,7 +271,8 @@ DB 환경변수가 없는 상태로 배포하면 클로즈드 테스트 모드�
 ## 배포 후 확인
 
 - [ ] `https://도메인/api/health` 가 `{"status":"ok"}` 를 반환한다
-- [ ] 앱 로그(Railway: Deployments → View logs)에 `자동정산 스케줄러 시작` 이 보인다
+- [ ] 앱 로그(Render: Logs)에 `자동정산 스케줄러 시작` 이 보인다
+- [ ] GitHub Actions `settle` 수동 실행이 성공한다
 - [ ] 회원가입, 로그인이 된다
 - [ ] 포인트 충전 → 포트폴리오 구매 → 작업 시작 → 작업 완료 → 구매확정까지 진행되고 디자이너 포인트가 늘어난다
 - [ ] 두 계정으로 채팅이 실시간으로 오간다
@@ -227,7 +283,8 @@ DB 환경변수가 없는 상태로 배포하면 클로즈드 테스트 모드�
 | 워크플로 | 시점 | 하는 일 |
 |----------|------|---------|
 | `.github/workflows/ci.yml` | PR, main/develop 푸시 | lint, 단위 테스트, 빌드, MySQL 통합 테스트 |
-| Railway | main 푸시 + CI 통과 (Wait for CI) | 이미지 빌드, 배포, 헬스체크 |
+| Render | main 푸시 + CI 통과 (`checksPass`) | 이미지 빌드, 배포, 헬스체크 |
+| `.github/workflows/settle.yml` | 매시 7분, 수동 | 자동정산 API 호출 |
 | `.github/workflows/cd.yml` | 수동 | 자체 서버용 이미지 빌드·푸시, SSH 배포 |
 
 ## 문제 해결
