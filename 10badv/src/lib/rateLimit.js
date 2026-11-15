@@ -1,66 +1,37 @@
-/**
- * 간단한 인메모리 Rate Limiter (Vercel Serverless 환경용)
- * 
- * 프로덕션 스케일링 시 Redis 기반으로 교체 권장 (upstash/ratelimit)
- * 현재는 서버리스 함수 인스턴스별 독립 카운트이므로 완벽하지 않지만,
- * 기본적인 abuse 방지에 효과적입니다.
- */
-
-const rateLimitMap = new Map();
-
-// 오래된 엔트리 자동 정리 (메모리 누수 방지)
-const CLEANUP_INTERVAL = 60 * 1000; // 1분마다
-let lastCleanup = Date.now();
-
-function cleanup(windowMs) {
-  const now = Date.now();
-  if (now - lastCleanup < CLEANUP_INTERVAL) return;
-  lastCleanup = now;
-
-  for (const [key, data] of rateLimitMap.entries()) {
-    if (now - data.resetTime > windowMs * 2) {
-      rateLimitMap.delete(key);
-    }
-  }
-}
+import { getFallbackStore, getStore } from '@/lib/kv';
 
 /**
- * Rate Limit 체크
- * @param {string} identifier - IP 또는 userId
- * @param {object} options
- * @param {number} options.limit - 허용 요청 수 (기본: 20)
- * @param {number} options.windowMs - 시간 윈도우 ms (기본: 60000 = 1분)
- * @returns {{ success: boolean, remaining: number, reset: number }}
+ * 요청 제한 (Rate Limit) — 고정 구간(fixed window) 방식
+ *
+ * "identifier 는 windowMs 동안 limit 번까지" 를 센다. 첫 요청 때 구간이 시작되고,
+ * 구간이 끝나면 횟수가 0 으로 돌아간다.
+ *
+ * 횟수는 키-값 저장소에 둔다.
+ *  - Redis 가 있으면: 서버가 여러 대여도 한 곳에서 세므로 정확하다. 증가와 만료 설정은 원자적으로 실행된다
+ *    (lib/kv/redisStore.js 의 Lua 스크립트).
+ *  - Redis 가 없거나 장애면: 이 서버의 메모리로 센다. 서버마다 따로 세게 되어 느슨해지지만,
+ *    제한이 아예 사라지거나 모든 요청이 막히는 것보다 낫다.
  */
-export function rateLimit(identifier, { limit = 20, windowMs = 60 * 1000 } = {}) {
-  cleanup(windowMs);
 
-  const now = Date.now();
-  const key = identifier;
-  const record = rateLimitMap.get(key);
-
-  if (!record || now > record.resetTime) {
-    rateLimitMap.set(key, {
-      count: 1,
-      resetTime: now + windowMs,
-    });
-    return { success: true, remaining: limit - 1, reset: now + windowMs };
-  }
-
-  record.count++;
-
-  if (record.count > limit) {
-    return {
-      success: false,
-      remaining: 0,
-      reset: record.resetTime,
-    };
+/**
+ * 한 번 사용한 것으로 세고, 허용 여부를 돌려준다.
+ * @param {string} identifier 무엇을 기준으로 셀지 (예: "register:1.2.3.4", "ai:draft:42")
+ * @returns {Promise<{ success: boolean, remaining: number, reset: number }>} reset 은 구간이 끝나는 시각(ms)
+ */
+export async function rateLimit(identifier, { limit = 20, windowMs = 60 * 1000, store, now = Date.now } = {}) {
+  const key = `tenbadv:rl:${identifier}`;
+  let result;
+  try {
+    result = await (store || getStore()).incrementWithExpiry(key, windowMs);
+  } catch (error) {
+    console.error('요청 제한 저장소 오류 (메모리로 대신 셉니다):', error.message);
+    result = await getFallbackStore().incrementWithExpiry(key, windowMs);
   }
 
   return {
-    success: true,
-    remaining: limit - record.count,
-    reset: record.resetTime,
+    success: result.count <= limit,
+    remaining: Math.max(0, limit - result.count),
+    reset: now() + result.ttlMs,
   };
 }
 
@@ -68,12 +39,12 @@ export function rateLimit(identifier, { limit = 20, windowMs = 60 * 1000 } = {})
  * API 라우트에서 Rate Limit 체크 헬퍼
  * @param {Request} request
  * @param {object} options
- * @returns {{ allowed: boolean, response?: Response, headers: object }}
+ * @returns {Promise<{ allowed: boolean, headers: object }>}
  */
-export function checkRateLimit(request, options = {}) {
+export async function checkRateLimit(request, options = {}) {
   const forwarded = request.headers.get('x-forwarded-for');
   const ip = forwarded ? forwarded.split(',')[0].trim() : 'unknown';
-  const { success, remaining, reset } = rateLimit(ip, options);
+  const { success, remaining, reset } = await rateLimit(`${options.name || 'ip'}:${ip}`, options);
 
   const headers = {
     'X-RateLimit-Limit': String(options.limit || 20),

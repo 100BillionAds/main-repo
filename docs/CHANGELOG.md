@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Redis 도입: AI 응답 캐시(같은 입력은 LLM 을 다시 부르지 않음), Lua 스크립트로 원자적인 요청 제한. Redis 가 없거나 장애면 메모리로 동작. Render Key Value(무료) 정의 추가. 문서 `docs/REDIS.md`
+- AI 초안 작성에 사용자별 분당 5회 제한, `ai_requests.cache_hit` 컬럼
 - AI 의뢰서 초안 작성: 의뢰 작성 화면에서 짧은 메모를 의뢰서 형태로 다듬어 스트리밍으로 채워 줌 (`POST /api/ai/request-draft`)
 - LLM 제공자 추상화 `src/lib/llm` (anthropic / openai / mock), 제한 시간·재시도·대체 제공자, 버전 관리되는 프롬프트, 사용 기록 테이블 `ai_requests` 와 사용자별 하루 한도. 문서 `docs/LLM.md`
 - 도메인 계층 정리: 금액 값 객체 `Money`, 거래 엔티티 `Trade`, 저장소 `tradeRepository`. 에스크로 서비스는 순서 조율만 담당
@@ -22,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 문서: `docs/ESCROW.md`
 
 ### Changed
+- 회원가입과 파일 업로드의 요청 제한이 같은 IP 횟수를 공유하던 것을 용도별로 따로 세도록 변경
 - 포트원 결제 조회 코드를 `src/lib/payment/portoneGateway.js` 로 분리 (동작 동일)
 
 ### Fixed

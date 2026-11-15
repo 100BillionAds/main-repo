@@ -4,7 +4,9 @@ import { LlmError } from '@/lib/llm/errors';
 import { createMockProvider } from '@/lib/llm/mock';
 import prompt from '@/domain/ai/prompts/requestDraft.v1';
 import { normalizeDraftInput, parseDraft } from '@/domain/ai/requestDraft';
-import { startRequestDraft } from '@/domain/ai/requestDraftService';
+import { draftCacheKey, startRequestDraft } from '@/domain/ai/requestDraftService';
+import { createCache } from '@/lib/cache';
+import { createMemoryStore } from '@/lib/kv/memoryStore';
 
 const input = { brief: '동네 카페 간판, 따뜻한 느낌으로 부탁드려요' };
 
@@ -21,8 +23,12 @@ function fakeUsage(recentCount = 1) {
     markRejected: async (id) => log.push(['rejected', id]),
     markSuccess: async (id, data) => log.push(['success', id, data]),
     markError: async (id, data) => log.push(['error', id, data]),
+    recordCacheHit: async (entry) => log.push(['cacheHit', entry]),
   };
 }
+
+/** 캐시 없이 서비스 흐름만 검증할 때 쓰는 빈 캐시 */
+const noCache = { get: async () => null, set: async () => {} };
 
 async function readAll(stream) {
   const chunks = [];
@@ -89,7 +95,7 @@ describe('의뢰서 초안 서비스', () => {
     const usage = fakeUsage();
     const llm = createMockProvider({ reply: '제목: 카페 간판\n---\n본문입니다', delayMs: 0, chunkSize: 4 });
 
-    const { stream } = await startRequestDraft({ userId: 1, input, llm, usage });
+    const { stream } = await startRequestDraft({ userId: 1, input, llm, usage, cache: noCache });
     const chunks = await readAll(stream);
 
     const deltas = chunks.filter((chunk) => chunk.type === 'delta');
@@ -105,7 +111,7 @@ describe('의뢰서 초안 서비스', () => {
     const usage = fakeUsage();
     const llm = { stream: jest.fn() };
 
-    await expect(startRequestDraft({ userId: 1, input: { brief: '짧음' }, llm, usage })).rejects.toMatchObject({ status: 400 });
+    await expect(startRequestDraft({ userId: 1, input: { brief: '짧음' }, llm, usage, cache: noCache })).rejects.toMatchObject({ status: 400 });
 
     expect(usage.log).toEqual([]);
     expect(llm.stream).not.toHaveBeenCalled();
@@ -114,10 +120,10 @@ describe('의뢰서 초안 서비스', () => {
   it('하루 한도(기본 20회)까지는 허용하고, 넘으면 429 로 거부하며 LLM 을 부르지 않는다', async () => {
     const llm = { stream: jest.fn() };
 
-    await expect(startRequestDraft({ userId: 1, input, llm, usage: fakeUsage(20) })).resolves.toBeDefined();
+    await expect(startRequestDraft({ userId: 1, input, llm, usage: fakeUsage(20), cache: noCache })).resolves.toBeDefined();
 
     const usage = fakeUsage(21);
-    await expect(startRequestDraft({ userId: 1, input, llm, usage })).rejects.toMatchObject({
+    await expect(startRequestDraft({ userId: 1, input, llm, usage, cache: noCache })).rejects.toMatchObject({
       status: 429,
       code: 'AI_QUOTA_EXCEEDED',
     });
@@ -134,7 +140,7 @@ describe('의뢰서 초안 서비스', () => {
       },
     };
 
-    const { stream } = await startRequestDraft({ userId: 1, input, llm, usage });
+    const { stream } = await startRequestDraft({ userId: 1, input, llm, usage, cache: noCache });
     await expect(readAll(stream)).rejects.toMatchObject({ code: 'UNAVAILABLE' });
 
     const errors = usage.log.filter(([kind]) => kind === 'error');
@@ -145,10 +151,123 @@ describe('의뢰서 초안 서비스', () => {
     const usage = fakeUsage();
     const llm = createMockProvider({ delayMs: 0, chunkSize: 2 });
 
-    const { stream } = await startRequestDraft({ userId: 1, input, llm, usage });
+    const { stream } = await startRequestDraft({ userId: 1, input, llm, usage, cache: noCache });
     await stream.next();
     await stream.return();
 
     expect(usage.log[usage.log.length - 1]).toEqual(['error', 7, expect.objectContaining({ errorCode: 'ABORTED' })]);
+  });
+});
+
+describe('응답 캐시', () => {
+  const reply = '제목: 카페 간판\n---\n본문입니다. 여러 조각으로 나뉘도록 조금 길게 씁니다.';
+
+  /** 호출 횟수를 세는 가짜 LLM */
+  function countingLlm() {
+    const provider = createMockProvider({ reply, delayMs: 0 });
+    const llm = {
+      name: 'mock',
+      model: 'mock-1',
+      calls: 0,
+      stream(request) {
+        llm.calls += 1;
+        return provider.stream(request);
+      },
+    };
+    return llm;
+  }
+
+  const savedTtl = process.env.LLM_CACHE_TTL_SECONDS;
+  afterEach(() => {
+    if (savedTtl === undefined) delete process.env.LLM_CACHE_TTL_SECONDS;
+    else process.env.LLM_CACHE_TTL_SECONDS = savedTtl;
+  });
+
+  it('같은 입력의 두 번째 요청은 LLM 을 부르지 않고 같은 글을 돌려준다', async () => {
+    const llm = countingLlm();
+    const usage = fakeUsage();
+    const cache = createCache({ store: createMemoryStore() });
+
+    const first = await readAll((await startRequestDraft({ userId: 1, input, llm, usage, cache })).stream);
+    const second = await readAll((await startRequestDraft({ userId: 2, input, llm, usage, cache })).stream);
+
+    expect(llm.calls).toBe(1);
+    const textOf = (chunks) => chunks.filter((chunk) => chunk.type === 'delta').map((chunk) => chunk.text).join('');
+    expect(textOf(second)).toBe(textOf(first));
+    expect(second[second.length - 1]).toEqual({ type: 'done', title: '카페 간판', description: expect.any(String), cached: true });
+    // 캐시 응답은 하루 한도에 들어가는 기록(start)을 남기지 않는다.
+    expect(usage.log.map(([kind]) => kind)).toEqual(['start', 'success', 'cacheHit']);
+    expect(usage.log[2][1]).toMatchObject({ userId: 2, provider: 'mock', model: 'mock-1' });
+  });
+
+  it('입력이 한 글자라도 다르면 다시 LLM 을 부른다', async () => {
+    const llm = countingLlm();
+    const cache = createCache({ store: createMemoryStore() });
+
+    await readAll((await startRequestDraft({ userId: 1, input, llm, usage: fakeUsage(), cache })).stream);
+    await readAll(
+      (await startRequestDraft({ userId: 1, input: { brief: `${input.brief}!` }, llm, usage: fakeUsage(), cache })).stream
+    );
+
+    expect(llm.calls).toBe(2);
+  });
+
+  it('캐시 키에는 프롬프트 버전과 모델이 들어간다 (바꾸면 예전 답이 섞이지 않는다)', () => {
+    const normalized = { brief: '따뜻한 느낌', category: '', budget: null };
+    const key = draftCacheKey(normalized, { name: 'anthropic', model: 'model-a' });
+
+    expect(key).toContain('request_draft:v1:anthropic:model-a:');
+    expect(key).not.toContain('따뜻한');
+    expect(draftCacheKey(normalized, { name: 'anthropic', model: 'model-b' })).not.toBe(key);
+  });
+
+  it('도중에 실패한 응답은 캐시하지 않는다', async () => {
+    const cache = createCache({ store: createMemoryStore() });
+    let calls = 0;
+    const llm = {
+      name: 'broken',
+      model: 'm',
+      async *stream() {
+        calls += 1;
+        yield { type: 'text', text: '절반만' };
+        throw new LlmError('503', { code: 'UNAVAILABLE' });
+      },
+    };
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const { stream } = await startRequestDraft({ userId: 1, input, llm, usage: fakeUsage(), cache });
+      await expect(readAll(stream)).rejects.toMatchObject({ code: 'UNAVAILABLE' });
+    }
+    expect(calls).toBe(2);
+  });
+
+  it('캐시가 고장 나도 초안 작성은 된다', async () => {
+    const llm = countingLlm();
+    const broken = createCache({
+      store: {
+        get: async () => {
+          throw new Error('redis down');
+        },
+        set: async () => {
+          throw new Error('redis down');
+        },
+      },
+      onError: () => {},
+    });
+
+    const chunks = await readAll((await startRequestDraft({ userId: 1, input, llm, usage: fakeUsage(), cache: broken })).stream);
+
+    expect(chunks[chunks.length - 1]).toMatchObject({ type: 'done', title: '카페 간판' });
+  });
+
+  it('LLM_CACHE_TTL_SECONDS=0 이면 캐시를 쓰지 않는다', async () => {
+    process.env.LLM_CACHE_TTL_SECONDS = '0';
+    const llm = countingLlm();
+    const cache = createCache({ store: createMemoryStore() });
+
+    await readAll((await startRequestDraft({ userId: 1, input, llm, usage: fakeUsage(), cache })).stream);
+    await readAll((await startRequestDraft({ userId: 1, input, llm, usage: fakeUsage(), cache })).stream);
+
+    expect(llm.calls).toBe(2);
   });
 });

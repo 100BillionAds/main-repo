@@ -18,11 +18,21 @@ export async function start({ userId, feature, promptVersion, inputChars }) {
   return result.insertId;
 }
 
-/** 최근 24시간 동안 이 사용자가 쓴 횟수 (거절된 요청은 세지 않는다). 시각은 DB 시계 기준. */
+/** 캐시에서 답한 호출을 기록한다. LLM 을 부르지 않았으므로 토큰은 0 이고 하루 한도에 들어가지 않는다. */
+export async function recordCacheHit({ userId, feature, promptVersion, inputChars, provider, model }) {
+  await query(
+    `INSERT INTO ai_requests
+       (user_id, feature, prompt_version, input_chars, status, cache_hit, provider, model, input_tokens, output_tokens, latency_ms)
+     VALUES (?, ?, ?, ?, 'success', 1, ?, ?, 0, 0, 0)`,
+    [userId, feature, promptVersion, inputChars, provider ?? null, model ?? null]
+  );
+}
+
+/** 최근 24시간 동안 이 사용자가 LLM 을 부른 횟수 (거절된 요청과 캐시 응답은 세지 않는다). 시각은 DB 시계 기준. */
 export async function countRecent(userId) {
   const rows = await query(
     `SELECT COUNT(*) AS cnt FROM ai_requests
-      WHERE user_id = ? AND status <> 'rejected' AND created_at > NOW() - INTERVAL 1 DAY`,
+      WHERE user_id = ? AND status <> 'rejected' AND cache_hit = 0 AND created_at > NOW() - INTERVAL 1 DAY`,
     [userId]
   );
   return Number(rows[0]?.cnt || 0);

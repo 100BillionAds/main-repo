@@ -10,6 +10,7 @@
 | [ERD.md](./ERD.md) | 데이터베이스 ERD 및 테이블 스키마 |
 | [ESCROW.md](./ESCROW.md) | 에스크로 자동정산: 용어, 상태 전환, 동시성 규칙 |
 | [LLM.md](./LLM.md) | AI 기능: 제공자 추상화, 장애 대응, 프롬프트 관리, 비용 통제 |
+| [REDIS.md](./REDIS.md) | Redis: 캐시, 요청 제한, 장애 시 동작 |
 | [MIGRATIONS.md](./MIGRATIONS.md) | 스키마 마이그레이션: 추가 방법, 규칙, 실패 시 동작 |
 | [DEPLOYMENT.md](./DEPLOYMENT.md) | Docker 서버 배포, Vercel 배포, CI/CD |
 | [CONTRIBUTING.md](./CONTRIBUTING.md) | 기여 가이드 및 코드 스타일 |

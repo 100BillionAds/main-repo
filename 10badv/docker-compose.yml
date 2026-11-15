@@ -26,6 +26,7 @@ services:
       DATABASE_PASSWORD: ${DATABASE_PASSWORD:-app-local-password}
       DATABASE_NAME: ${DATABASE_NAME:-tenbadv}
       DATABASE_SSL: "false"
+      REDIS_URL: redis://redis:6379
     restart: unless-stopped
 
   db:
@@ -46,6 +47,12 @@ services:
       interval: 10s
       timeout: 5s
       retries: 20
+
+  # 캐시·요청 제한용. 데이터를 디스크에 남기지 않는다 (운영의 무료 Redis 와 같은 조건).
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "64mb", "--maxmemory-policy", "allkeys-lru"]
 
 volumes:
   mysql_data:

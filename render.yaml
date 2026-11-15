@@ -48,6 +48,13 @@ services:
         value: EASY_PAY
       - key: PORTONE_API_SECRET
         sync: false
+      # ---- Redis (캐시, 요청 제한) ----
+      # 아래 tenbadv-cache 의 내부 접속 주소가 자동으로 들어간다. 없으면 앱은 메모리 저장소로 동작한다.
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: tenbadv-cache
+          property: connectionString
       # ---- AI (LLM) ----
       # mock: 실제 AI 를 부르지 않고 예시 문구를 돌려준다 (비용 0).
       # 실제로 쓰려면 Render 대시보드에서 LLM_PROVIDER 를 anthropic 으로 바꾸고 ANTHROPIC_API_KEY 를 넣는다.
@@ -66,3 +73,13 @@ services:
         sync: false
       - key: CLOUDINARY_API_SECRET
         sync: false
+
+  # Redis 호환 저장소 (무료 플랜: 재시작하면 데이터가 사라진다 — 캐시·요청 제한 용도라 괜찮다)
+  - type: keyvalue
+    name: tenbadv-cache
+    plan: free
+    region: singapore
+    # 메모리가 차면 오래 안 쓴 키부터 지운다 (캐시에 맞는 정책)
+    maxmemoryPolicy: allkeys-lru
+    # 외부 접속 차단: Render 내부 네트워크(같은 리전의 내 서비스)에서만 접속한다
+    ipAllowList: []
