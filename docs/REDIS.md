@@ -137,4 +137,3 @@ docker run -d -p 6379:6379 redis:7-alpine
 ## 아직 없는 것
 
 - 캐시 쏠림(stampede) 방지: 같은 입력이 동시에 여러 번 오면 각자 LLM 을 부릅니다.
-- `/api/health` 에 Redis 상태 포함 (6단계)

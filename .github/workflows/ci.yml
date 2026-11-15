@@ -173,6 +173,12 @@ jobs:
           docker compose logs app | grep '자동정산 스케줄러 시작'
           # Redis 가 있으므로 이벤트 처리가 큐 워커로 시작돼야 한다
           docker compose logs app | grep '이벤트 처리 시작 (큐 워커'
+          # 구성 요소 상태: DB·마이그레이션·Redis·아웃박스가 모두 정상이어야 한다
+          curl -fsS http://localhost:3000/api/health/ready | tee /dev/stderr | grep '"status":"ok"'
+          curl -fsS http://localhost:3000/api/health/ready | grep -o '"redis":{"status":"ok"'
+          # 정리 작업 API 인증
+          curl -fsS -X POST -H "Authorization: Bearer ci-smoke-cron" http://localhost:3000/api/cron/maintenance | grep '"success":true'
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:3000/api/cron/maintenance)" = "401"
           docker compose exec -T db sh -c 'mysql -u root -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE" -N -e "SELECT COUNT(*) FROM schema_migrations"' | grep -x 4
 
       - name: Logs on failure

@@ -1,22 +1,9 @@
-import { timingSafeEqual } from 'crypto';
 import { NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { runAutoSettlement } from '@/domain/escrow/escrowService';
 import { errorResponse } from '@/lib/apiResponse';
+import { isCronAuthorized } from '@/lib/cronAuth';
 
 export const dynamic = 'force-dynamic';
-
-function hasValidCronSecret(request) {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return false;
-
-  const header = request.headers.get('authorization') || '';
-  const provided = Buffer.from(header);
-  const expected = Buffer.from(`Bearer ${secret}`);
-
-  return provided.length === expected.length && timingSafeEqual(provided, expected);
-}
 
 /**
  * 에스크로 자동정산 실행.
@@ -25,14 +12,7 @@ function hasValidCronSecret(request) {
  */
 async function settle(request) {
   try {
-    let authorized = hasValidCronSecret(request);
-
-    if (!authorized) {
-      const session = await getServerSession(authOptions);
-      authorized = session?.user?.role === 'admin';
-    }
-
-    if (!authorized) {
+    if (!(await isCronAuthorized(request))) {
       return NextResponse.json({ success: false, error: '권한이 없습니다.' }, { status: 401 });
     }
 

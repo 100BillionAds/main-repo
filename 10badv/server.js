@@ -365,6 +365,50 @@ app.prepare().then(() => {
     console.log(`⏱  자동정산 스케줄러 시작 (${minutes}분 주기)`);
   }
 
+  // 하루 한 번 정리 작업(오래된 처리 완료 이벤트·읽은 알림 삭제)을 호출한다.
+  function startMaintenanceScheduler() {
+    const secret = process.env.CRON_SECRET;
+    if (!secret) return;
+
+    const run = async () => {
+      try {
+        const response = await fetch(`http://127.0.0.1:${port}/api/cron/maintenance`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${secret}` },
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          console.error('정리 작업 실패:', response.status, body.error || '');
+        } else {
+          const total = Object.values(body.deleted || {}).reduce((sum, count) => sum + count, 0);
+          if (total > 0) console.log('🧹 정리 작업:', JSON.stringify(body.deleted));
+        }
+      } catch (error) {
+        console.error('정리 작업 호출 오류:', error.message);
+      }
+    };
+
+    setTimeout(run, 2 * 60 * 1000).unref();
+    setInterval(run, 24 * 60 * 60 * 1000).unref();
+  }
+
+  // 배포·재시작 때 플랫폼이 SIGTERM 을 보낸다. 받던 요청과 처리 중이던 이벤트를 마치고 끝낸다.
+  // 10초 안에 끝나지 않으면 그냥 종료한다 (남은 이벤트는 아웃박스에 있어 다음 서버가 이어서 처리한다).
+  let shuttingDown = false;
+  async function shutdown(signal) {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`${signal} 수신: 종료 절차 시작`);
+    setTimeout(() => process.exit(0), 10 * 1000).unref();
+
+    httpServer.close();
+    const hooks = globalThis.__tenbadvShutdownHooks || [];
+    await Promise.allSettled(hooks.map((hook) => hook()));
+    process.exit(0);
+  }
+  process.once('SIGTERM', () => shutdown('SIGTERM'));
+  process.once('SIGINT', () => shutdown('SIGINT'));
+
   httpServer
     .once('error', (err) => {
       console.error(err);
@@ -374,5 +418,6 @@ app.prepare().then(() => {
       console.log(`> Ready on http://${hostname}:${port}`);
       console.log('🔌 Socket.io 서버 시작됨');
       startSettlementScheduler();
+      startMaintenanceScheduler();
     });
 });
