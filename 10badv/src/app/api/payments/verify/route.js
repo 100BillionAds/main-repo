@@ -22,7 +22,15 @@ async function verifyPaymentFromPortOne(paymentId) {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || '결제 검증 실패');
+    // 원인 파악용: 상태코드와 포트원 오류 type만 남긴다 (시크릿/결제 정보는 로그에 남기지 않음)
+    console.error('포트원 결제 조회 실패', {
+      status: response.status,
+      type: errorData.type,
+      message: errorData.message,
+    });
+    const error = new Error(errorData.message || `결제 검증 실패 (포트원 ${response.status} ${errorData.type || ''})`.trim());
+    error.upstreamStatus = response.status;
+    throw error;
   }
 
   return response.json();
