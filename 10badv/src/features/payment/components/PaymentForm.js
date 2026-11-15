@@ -61,6 +61,8 @@ export default function PaymentForm() {
   };
 
   const toPortOnePayMethod = (method) => {
+    // 카카오페이 등 간편결제 전용 채널은 EASY_PAY 로 고정해야 합니다.
+    if (process.env.NEXT_PUBLIC_PORTONE_PAY_METHOD) return process.env.NEXT_PUBLIC_PORTONE_PAY_METHOD;
     if (method === 'bank') return 'TRANSFER';
     if (method === 'virtual') return 'VIRTUAL_ACCOUNT';
     return 'CARD';

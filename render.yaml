@@ -36,13 +36,16 @@ services:
       - key: ESCROW_COMMISSION_RATE
         value: "0.1"
       # ---- 결제 (포트원, 선택) ----
-      # 아래 두 값은 브라우저에 노출되는 공개 값입니다 (빌드 시점에 포함됨).
-      # 현재는 포트원 '테스트' 채널(KG이니시스)이라 실제 결제가 일어나지 않습니다.
-      # 실연동 전환 시 실연동 채널 키로 교체하세요.
+      # 아래 값들은 브라우저에 노출되는 공개 값입니다 (빌드 시점에 포함됨).
+      # 현재는 포트원 '테스트' 채널(카카오페이)이라 실제 결제가 일어나지 않습니다.
+      # (KG이니시스 테스트 채널은 V1 전용이라 V2 SDK에서 거절됨)
+      # 실연동 전환 시 실연동 채널 키/결제수단으로 교체하세요.
       - key: NEXT_PUBLIC_PORTONE_STORE_ID
         value: store-4f5ddcf1-3d8c-40cd-98f7-f62dc20f0fa7
       - key: NEXT_PUBLIC_PORTONE_CHANNEL_KEY
-        value: channel-key-9bb96813-0eac-43eb-9798-ae1efdd03c2f
+        value: channel-key-19bf94b9-c6a4-427f-9a4a-6359402d65b2
+      - key: NEXT_PUBLIC_PORTONE_PAY_METHOD
+        value: EASY_PAY
       - key: PORTONE_API_SECRET
         sync: false
       # ---- 파일 업로드 (Cloudinary, 선택) ----
