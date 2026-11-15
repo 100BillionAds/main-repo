@@ -78,3 +78,47 @@ jobs:
 
       - name: Integration tests
         run: npm run test:integration
+
+  # 운영 이미지가 빌드되고, MySQL 과 함께 실제로 떠서 응답하는지 확인한다.
+  docker-smoke:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 10badv
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Write env file
+        run: |
+          cat > .env.local <<ENV
+          NEXTAUTH_SECRET=ci-smoke-secret
+          NEXTAUTH_URL=http://localhost:3000
+          CRON_SECRET=ci-smoke-cron
+          SETTLEMENT_INTERVAL_MINUTES=1
+          ENV
+
+      - name: Build and start
+        run: docker compose up -d --build
+
+      - name: Wait for health
+        run: |
+          for i in $(seq 1 40); do
+            if curl -fsS http://localhost:3000/api/health; then echo; exit 0; fi
+            sleep 3
+          done
+          docker compose logs app
+          exit 1
+
+      - name: Check schema and settlement endpoint
+        run: |
+          # 서버 시작 시 스키마 초기화로 에스크로 컬럼이 생겼는지
+          docker compose exec -T db sh -c 'mysql -u root -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE" -N -e "SHOW COLUMNS FROM transactions LIKE \"escrow_status\""' | grep escrow_status
+          # 자동정산 API 가 비밀값으로 호출되는지, 없으면 거부하는지
+          curl -fsS -X POST -H "Authorization: Bearer ci-smoke-cron" http://localhost:3000/api/cron/settle | grep '"success":true'
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:3000/api/cron/settle)" = "401"
+          docker compose logs app | grep '자동정산 스케줄러 시작'
+
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs
