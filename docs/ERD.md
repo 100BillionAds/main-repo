@@ -227,6 +227,7 @@ AI 호출 기록 ([LLM.md](./LLM.md)). 메모 원문과 응답은 저장하지 �
 | `status` | `pending` / `success` / `error` / `rejected`(한도 초과) |
 | `input_chars`, `input_tokens`, `output_tokens` | 사용량 |
 | `latency_ms`, `error_code` | 걸린 시간, 실패 원인 |
+| `cache_hit` | 캐시에서 답했으면 1 (LLM 호출 없음, 하루 한도에서 제외) |
 | `created_at` | 호출 시각. `(user_id, created_at)` 인덱스로 하루 한도를 셉니다 |
 
 ### schema_migrations

@@ -4,7 +4,8 @@
  */
 import baseline from './0001_baseline.js';
 import addAiRequests from './0002_add_ai_requests.js';
+import addAiCacheHit from './0003_add_ai_cache_hit.js';
 
-const migrations = [baseline, addAiRequests];
+const migrations = [baseline, addAiRequests, addAiCacheHit];
 
 export default migrations;

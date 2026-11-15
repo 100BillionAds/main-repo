@@ -27,7 +27,7 @@ export async function POST(request) {
 
   try {
     // Rate Limiting: 분당 5회 (회원가입 남용 방지)
-    const { allowed, headers: rlHeaders } = checkRateLimit(request, { limit: 5, windowMs: 60 * 1000 });
+    const { allowed, headers: rlHeaders } = await checkRateLimit(request, { name: 'register', limit: 5, windowMs: 60 * 1000 });
     if (!allowed) {
       return NextResponse.json(
         { error: '너무 많은 요청입니다. 잠시 후 다시 시도해주세요.' },

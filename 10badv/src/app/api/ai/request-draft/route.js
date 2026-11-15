@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { errorResponse } from '@/lib/apiResponse';
 import { formatSseEvent } from '@/lib/sse';
+import { rateLimit } from '@/lib/rateLimit';
 import { startRequestDraft } from '@/domain/ai/requestDraftService';
 
 export const dynamic = 'force-dynamic';
@@ -16,13 +17,22 @@ export const dynamic = 'force-dynamic';
  *   event: delta  data: {"text":"..."}                       글자가 나올 때마다
  *   event: done   data: {"title":"...","description":"..."}  끝났을 때 한 번
  *   event: error  data: {"error":"..."}                      스트림 도중 실패
- * 응답(시작 전 실패): 일반 JSON { success: false, error } + 400/401/429
+ * 응답(시작 전 실패): 일반 JSON { success: false, error } + 400/401/429 (429: 분당 5회 또는 하루 한도 초과)
  */
 export async function POST(request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ success: false, error: '로그인이 필요합니다.' }, { status: 401 });
+    }
+
+    // 짧은 시간에 몰아서 누르는 것을 막는다 (분당 5회). 하루 한도와는 별개다.
+    const burst = await rateLimit(`ai:draft:${session.user.id}`, { limit: 5, windowMs: 60 * 1000 });
+    if (!burst.success) {
+      return NextResponse.json(
+        { success: false, error: '요청이 너무 잦습니다. 잠시 후 다시 시도해주세요.' },
+        { status: 429, headers: { 'Retry-After': String(Math.max(1, Math.ceil((burst.reset - Date.now()) / 1000))) } }
+      );
     }
 
     const body = await request.json().catch(() => ({}));

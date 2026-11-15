@@ -113,6 +113,8 @@ v1 프롬프트의 핵심 규칙:
 | 입력 길이 제한 (10~500자) | `requestDraft.js` — LLM 을 부르기 전에 거부 |
 | 출력 길이 제한 (`maxTokens: 800`) | 프롬프트 파일 |
 | 사용자별 하루 한도 (기본 20회 / 24시간) | `requestDraftService.js` |
+| 사용자별 분당 5회 제한 | API 라우트 (`lib/rateLimit.js`) |
+| 같은 입력은 캐시에서 응답 (24시간) | `requestDraftService.js` — [REDIS.md](./REDIS.md) |
 | 로그인 필수 | API 라우트 |
 | 사용자가 떠나면 호출 중단 | `request.signal` → 제공자 `fetch` 취소 |
 
@@ -122,7 +124,7 @@ v1 프롬프트의 핵심 규칙:
 
 호출마다 한 행을 남깁니다: 사용자, 기능, 프롬프트 버전, 제공자, 모델, 상태(`pending` / `success` / `error` / `rejected`), 입력 글자 수, 입출력 토큰 수, 걸린 시간, 오류 코드.
 
-**메모 원문과 모델 응답은 저장하지 않습니다.**
+**메모 원문과 모델 응답은 DB 에 저장하지 않습니다.** 모델이 만든 초안 글만 캐시(Redis)에 24시간 보관됩니다 ([REDIS.md](./REDIS.md)).
 
 ```sql
 -- 최근 7일 기능·버전별 사용량
@@ -150,7 +152,7 @@ SELECT feature, prompt_version, provider, status, COUNT(*) AS calls,
 |---|---|
 | 400 | 메모가 10자 미만 또는 500자 초과 |
 | 401 | 로그인하지 않음 |
-| 429 | 하루 한도 초과 |
+| 429 | 분당 5회 또는 하루 한도 초과 |
 
 응답 — 성공하면 `text/event-stream`
 
@@ -174,7 +176,8 @@ data: {"title":"동네 카페 간판 디자인 의뢰","description":"1. 의뢰 
 | `LLM_FALLBACK_PROVIDER`, `LLM_FALLBACK_MODEL` | 없음 | 대체 제공자 |
 | `LLM_TIMEOUT_MS` | `30000` | 호출 한 번의 제한 시간 |
 | `LLM_MAX_RETRIES` | `2` | 재시도 횟수 |
-| `LLM_DAILY_LIMIT_PER_USER` | `20` | 사용자별 24시간 한도 |
+| `LLM_DAILY_LIMIT_PER_USER` | `20` | 사용자별 24시간 한도 (캐시 응답은 세지 않음) |
+| `LLM_CACHE_TTL_SECONDS` | `86400` | 응답 캐시 보관 시간. `0` 이면 끔 |
 
 ### mock 제공자
 
@@ -199,6 +202,5 @@ data: {"title":"동네 카페 간판 디자인 의뢰","description":"1. 의뢰 
 
 ## 아직 없는 것
 
-- 응답 캐시, 원자적 요청 제한 (4단계: Redis)
 - 오래 걸리는 작업을 큐로 넘기기 (5단계)
 - 모델 응답의 품질 평가(eval) 자동화
