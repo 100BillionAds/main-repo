@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 도메인 계층 정리: 금액 값 객체 `Money`, 거래 엔티티 `Trade`, 저장소 `tradeRepository`. 에스크로 서비스는 순서 조율만 담당
 - 스키마 마이그레이션 체계: 번호가 붙은 마이그레이션(`src/lib/migrations`), 적용 기록 테이블 `schema_migrations`, DB 잠금(`GET_LOCK`)으로 동시 실행 방지, 체크섬으로 적용된 마이그레이션 변조 감지. 문서 `docs/MIGRATIONS.md`
 - 에스크로 자동정산: 작업 완료 제출 후 기한(기본 7일) 내 구매확정이 없으면 자동 구매확정, 결제 후 기한 내 디자이너가 작업을 시작하지 않으면 자동 취소·환불
 - 자동정산 API `POST /api/cron/settle` 와 `server.js` 내장 스케줄러, Vercel 크론 설정
@@ -19,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 문서: `docs/ESCROW.md`
 
 ### Fixed
+- 수수료율이 10% 가 아닐 때 부동소수점 오차로 수수료가 1원 적게 계산될 수 있던 문제 (예: 3,000원 × 29% = 869원 → 870원)
 - 제안 수락 시 구매자 포인트를 차감하지 않고 거래가 만들어져, 거래 완료 시 디자이너에게 없는 포인트가 지급되던 문제
 - 결제 검증 요청이 동시에 오면 포인트가 중복 충전될 수 있던 문제
 - 거래 상태 변경 요청이 동시에 오면 대금이 중복 지급되거나 지급과 환불이 함께 일어날 수 있던 문제
