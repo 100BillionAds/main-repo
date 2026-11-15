@@ -1,15 +1,8 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcrypt';
-import { getUserByUsername, getUserByEmail, createUser, initializeDatabase } from '@/lib/db';
+import { getUserByUsername, getUserByEmail, createUser } from '@/lib/db';
 import { checkRateLimit } from '@/lib/rateLimit';
 import { isRuntimeReadOnlyMode } from '@/lib/runtimeMode';
-
-// 데이터베이스 초기화
-initializeDatabase().then(success => {
-  if (success) {
-    // DB 초기화 완료
-  }
-});
 
 // 허용된 역할 (admin은 API를 통해 가입 불가)
 const ALLOWED_ROLES = ['user', 'designer'];

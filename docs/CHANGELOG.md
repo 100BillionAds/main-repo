@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 스키마 마이그레이션 체계: 번호가 붙은 마이그레이션(`src/lib/migrations`), 적용 기록 테이블 `schema_migrations`, DB 잠금(`GET_LOCK`)으로 동시 실행 방지, 체크섬으로 적용된 마이그레이션 변조 감지. 문서 `docs/MIGRATIONS.md`
 - 에스크로 자동정산: 작업 완료 제출 후 기한(기본 7일) 내 구매확정이 없으면 자동 구매확정, 결제 후 기한 내 디자이너가 작업을 시작하지 않으면 자동 취소·환불
 - 자동정산 API `POST /api/cron/settle` 와 `server.js` 내장 스케줄러, Vercel 크론 설정
 - 도메인 계층 `src/domain` (포인트 원장, 에스크로 정책·서비스)
