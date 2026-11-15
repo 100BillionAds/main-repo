@@ -5,7 +5,7 @@ import { collect, createLlmClientFromEnv } from '@/lib/llm';
 import { createAnthropicProvider } from '@/lib/llm/anthropic';
 import { createOpenAiProvider } from '@/lib/llm/openai';
 import { MOCK_NOTICE } from '@/lib/llm/mock';
-import { sseResponse, jsonResponse } from './testUtils';
+import { sseResponse, jsonResponse } from '../../../testing/sseResponse';
 
 const request = { system: '시스템 지시', messages: [{ role: 'user', content: '안녕' }], maxTokens: 100 };
 
