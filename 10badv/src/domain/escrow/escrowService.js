@@ -1,19 +1,17 @@
-import { query, withTransaction } from '@/lib/db';
+import { withTransaction } from '@/lib/db';
 import { DomainError } from '@/domain/errors';
 import { creditPoints, debitPoints } from '@/domain/points/ledger';
-import {
-  ESCROW_STATUS,
-  TRANSACTION_STATUS,
-  calculateSettlement,
-  getAutoCancelDays,
-  getAutoConfirmDays,
-  getTransitionDenial,
-} from '@/domain/escrow/policy';
+import * as trades from '@/domain/escrow/tradeRepository';
 
 /**
- * 에스크로 서비스
+ * 에스크로 서비스 (응용 서비스)
  *
- * 거래(transactions) 한 건이 애그리거트이고, 돈이 움직이는 모든 흐름이 여기를 지난다.
+ * 돈이 움직이는 모든 흐름이 여기를 지난다. 이 파일은 "순서"만 정한다.
+ *
+ *   1. 트랜잭션을 열고 거래를 잠가서 읽는다        → tradeRepository
+ *   2. 거래에게 일을 시킨다 (규칙 판단, 금액 계산)  → Trade 엔티티
+ *   3. 바뀐 거래를 저장한다                        → tradeRepository
+ *   4. 포인트를 실제로 옮긴다                      → 포인트 원장(ledger)
  *
  *   보관(hold)   : 구매/제안 수락 시 구매자 포인트를 차감해 거래에 묶는다.
  *   정산(release): 구매확정(수동/자동) 시 수수료를 떼고 디자이너에게 지급한다.
@@ -25,107 +23,36 @@ import {
  *   3. 정산/환불은 escrow_status = 'held' 일 때만 일어난다. 한 번 빠져나간 돈은 다시 나가지 않는다.
  */
 
-const S = TRANSACTION_STATUS;
-const E = ESCROW_STATUS;
-
 function toId(value) {
   const id = Number(value);
   return Number.isSafeInteger(id) && id > 0 ? id : null;
 }
 
-async function lockTransaction(connection, transactionId) {
-  const [rows] = await connection.execute(
-    `SELECT t.*,
-            (t.auto_confirm_at IS NOT NULL AND t.auto_confirm_at <= NOW()) AS confirm_due,
-            (t.auto_cancel_at IS NOT NULL AND t.auto_cancel_at <= NOW()) AS cancel_due
-       FROM transactions t
-      WHERE t.id = ?
-        FOR UPDATE`,
-    [transactionId]
-  );
-  return rows[0] || null;
-}
-
-async function insertHeldTransaction(connection, { portfolioId, proposalId, buyerId, designerId, amount }) {
-  const [result] = await connection.execute(
-    `INSERT INTO transactions
-       (portfolio_id, proposal_id, buyer_id, designer_id, amount,
-        status, payment_method, payment_status, escrow_status, auto_cancel_at)
-     VALUES (?, ?, ?, ?, ?, 'pending', 'points', 'completed', 'held', DATE_ADD(NOW(), INTERVAL ? DAY))`,
-    [portfolioId ?? null, proposalId ?? null, buyerId, designerId, amount, getAutoCancelDays()]
-  );
-  return result.insertId;
-}
-
-/** 정산: 보관금에서 수수료를 떼고 디자이너에게 지급하고 거래를 완료 처리한다. */
-async function releaseEscrow(connection, transaction, settledBy) {
-  if (transaction.escrow_status !== E.HELD) {
-    throw new DomainError('보관 중인 에스크로 금액이 없어 정산할 수 없습니다.', {
-      status: 409,
-      code: 'ESCROW_NOT_HELD',
-    });
-  }
-
-  const amount = Number(transaction.amount);
-  const { commission, payout } = calculateSettlement(amount);
-
-  await connection.execute(
-    `UPDATE transactions
-        SET status = 'completed', escrow_status = 'released', commission = ?, settled_by = ?,
-            completed_at = NOW(), auto_confirm_at = NULL, auto_cancel_at = NULL
-      WHERE id = ?`,
-    [commission, settledBy, transaction.id]
-  );
-
-  if (payout > 0) {
-    const label = settledBy === 'auto' ? '자동 구매확정' : '완료';
-    await creditPoints(connection, {
-      userId: transaction.designer_id,
-      type: 'earn',
-      amount: payout,
-      description: `거래 #${transaction.id} ${label} 대금 지급 (수수료 ${commission.toLocaleString()}원 차감)`,
-      referenceType: 'transaction',
-      referenceId: transaction.id,
-    });
-  }
-
-  return { commission, payout };
-}
-
-/** 환불: 보관금이 있으면 구매자에게 전액 돌려주고 거래를 취소 처리한다. */
-async function refundEscrow(connection, transaction, { cancelledBy, reason }) {
-  const held = transaction.escrow_status === E.HELD;
-
-  await connection.execute(
-    `UPDATE transactions
-        SET status = 'cancelled', settled_by = ?, cancel_reason = ?, cancelled_at = NOW(),
-            auto_confirm_at = NULL, auto_cancel_at = NULL,
-            escrow_status = ?, payment_status = ?
-      WHERE id = ?`,
-    [
-      cancelledBy,
-      reason || null,
-      held ? E.REFUNDED : transaction.escrow_status,
-      held ? 'refunded' : transaction.payment_status,
-      transaction.id,
-    ]
-  );
-
-  if (!held) {
-    return { refunded: 0 };
-  }
-
-  const amount = Number(transaction.amount);
+/** 정산 결과대로 디자이너에게 대금을 지급한다. */
+async function payDesigner(connection, trade, { commission, payout, settledBy }) {
+  if (payout <= 0) return;
+  const label = settledBy === 'auto' ? '자동 구매확정' : '완료';
   await creditPoints(connection, {
-    userId: transaction.buyer_id,
-    type: 'refund',
-    amount,
-    description: `거래 #${transaction.id} 취소 환불${reason ? ` (${reason})` : ''}`,
+    userId: trade.designerId,
+    type: 'earn',
+    amount: payout,
+    description: `거래 #${trade.id} ${label} 대금 지급 (수수료 ${commission.toLocaleString()}원 차감)`,
     referenceType: 'transaction',
-    referenceId: transaction.id,
+    referenceId: trade.id,
   });
+}
 
-  return { refunded: amount };
+/** 환불 결과대로 구매자에게 보관금을 돌려준다. */
+async function refundBuyer(connection, trade, { refunded, reason }) {
+  if (refunded <= 0) return;
+  await creditPoints(connection, {
+    userId: trade.buyerId,
+    type: 'refund',
+    amount: refunded,
+    description: `거래 #${trade.id} 취소 환불${reason ? ` (${reason})` : ''}`,
+    referenceType: 'transaction',
+    referenceId: trade.id,
+  });
 }
 
 /**
@@ -165,7 +92,7 @@ export async function purchasePortfolio({ buyerId, portfolioId, requestedAmount 
       throw new DomainError('자신의 포트폴리오는 구매할 수 없습니다.');
     }
 
-    const transactionId = await insertHeldTransaction(connection, {
+    const transactionId = await trades.insertHeld(connection, {
       portfolioId: item.id,
       buyerId: buyer,
       designerId: item.designer_id,
@@ -249,7 +176,7 @@ export async function decideProposal({ proposalId, clientId, decision }) {
       [request.id, id]
     );
 
-    const transactionId = await insertHeldTransaction(connection, {
+    const transactionId = await trades.insertHeld(connection, {
       proposalId: id,
       buyerId: client,
       designerId: proposal.designer_id,
@@ -276,7 +203,6 @@ export async function decideProposal({ proposalId, clientId, decision }) {
  */
 export async function changeTransactionStatus({ transactionId, actor, status }) {
   const id = toId(transactionId);
-  const actorId = toId(actor?.id);
   if (!id) {
     throw new DomainError('거래를 찾을 수 없습니다.', { status: 404 });
   }
@@ -285,64 +211,43 @@ export async function changeTransactionStatus({ transactionId, actor, status }) 
   }
 
   return withTransaction(async (connection) => {
-    const transaction = await lockTransaction(connection, id);
-    if (!transaction) {
+    const trade = await trades.findByIdForUpdate(connection, id);
+    if (!trade) {
       throw new DomainError('거래를 찾을 수 없습니다.', { status: 404 });
     }
 
-    const isBuyer = Number(transaction.buyer_id) === actorId;
-    const isDesigner = Number(transaction.designer_id) === actorId;
-    const isAdmin = actor?.role === 'admin';
+    const outcome = trade.changeStatus(actor, status);
+    await trades.save(connection, trade);
 
-    if (!isBuyer && !isDesigner && !isAdmin) {
-      throw new DomainError('권한이 없습니다.', { status: 403 });
+    if (outcome.payout !== undefined) {
+      await payDesigner(connection, trade, outcome);
+      return { id, status, commission: outcome.commission, payout: outcome.payout };
     }
-
-    const denial = getTransitionDenial({ from: transaction.status, to: status, isBuyer, isDesigner, isAdmin });
-    if (denial) {
-      throw new DomainError(denial.message, { status: denial.status });
-    }
-
-    const actorKind = isBuyer ? 'buyer' : isDesigner ? 'designer' : 'admin';
-
-    if (status === S.COMPLETED) {
-      const settlement = await releaseEscrow(connection, transaction, actorKind);
-      return { id, status, ...settlement };
-    }
-
-    if (status === S.CANCELLED) {
-      const refund = await refundEscrow(connection, transaction, {
-        cancelledBy: actorKind,
-        reason: `${actorKind === 'buyer' ? '구매자' : actorKind === 'designer' ? '디자이너' : '관리자'} 취소`,
-      });
-      return { id, status, ...refund };
-    }
-
-    if (status === S.AWAITING_CONFIRMATION) {
-      await connection.execute(
-        `UPDATE transactions
-            SET status = 'awaiting_confirmation', submitted_at = NOW(),
-                auto_confirm_at = DATE_ADD(NOW(), INTERVAL ? DAY), auto_cancel_at = NULL
-          WHERE id = ?`,
-        [getAutoConfirmDays(), id]
-      );
-      return { id, status };
-    }
-
-    // in_progress: 작업 시작(pending →) 또는 수정 요청(awaiting_confirmation →)
-    if (transaction.status === S.PENDING) {
-      await connection.execute(
-        "UPDATE transactions SET status = 'in_progress', started_at = NOW(), auto_cancel_at = NULL WHERE id = ?",
-        [id]
-      );
-    } else {
-      await connection.execute(
-        "UPDATE transactions SET status = 'in_progress', submitted_at = NULL, auto_confirm_at = NULL WHERE id = ?",
-        [id]
-      );
+    if (outcome.refunded !== undefined) {
+      await refundBuyer(connection, trade, outcome);
+      return { id, status, refunded: outcome.refunded };
     }
     return { id, status };
   });
+}
+
+/**
+ * 후보 거래를 한 건씩, 건마다 별도 트랜잭션으로 처리한다.
+ * 한 건이 실패해도 나머지는 계속 처리하고, 실패는 요약에 남긴다.
+ */
+async function settleEach(ids, label, settleOne, summary, doneList) {
+  for (const id of ids) {
+    try {
+      const done = await withTransaction(async (connection) => {
+        const trade = await trades.findByIdForUpdate(connection, id);
+        return trade ? settleOne(connection, trade) : false;
+      });
+      (done ? doneList : summary.skipped).push(id);
+    } catch (error) {
+      console.error(`${label} 실패 (거래 #${id}):`, error);
+      summary.failed.push({ id, error: error.message });
+    }
+  }
 }
 
 /**
@@ -354,65 +259,27 @@ export async function changeTransactionStatus({ transactionId, actor, status }) 
  * 조건을 다시 확인하므로, 먼저 처리한 쪽만 돈을 움직이고 나머지는 건너뛴다.
  */
 export async function runAutoSettlement({ limit = 100 } = {}) {
-  const batch = Math.max(1, Math.min(500, Math.floor(Number(limit)) || 100));
-
-  const confirmTargets = await query(
-    `SELECT id FROM transactions
-      WHERE status = 'awaiting_confirmation' AND escrow_status = 'held'
-        AND auto_confirm_at IS NOT NULL AND auto_confirm_at <= NOW()
-      ORDER BY auto_confirm_at ASC
-      LIMIT ${batch}`
-  );
-  const cancelTargets = await query(
-    `SELECT id FROM transactions
-      WHERE status = 'pending' AND escrow_status = 'held'
-        AND auto_cancel_at IS NOT NULL AND auto_cancel_at <= NOW()
-      ORDER BY auto_cancel_at ASC
-      LIMIT ${batch}`
-  );
+  const confirmIds = await trades.findAutoConfirmCandidateIds(limit);
+  const cancelIds = await trades.findAutoCancelCandidateIds(limit);
 
   const summary = { confirmed: [], cancelled: [], skipped: [], failed: [] };
 
-  for (const { id } of confirmTargets) {
-    try {
-      const done = await withTransaction(async (connection) => {
-        const transaction = await lockTransaction(connection, id);
-        const due = transaction
-          && transaction.status === S.AWAITING_CONFIRMATION
-          && transaction.escrow_status === E.HELD
-          && Number(transaction.confirm_due) === 1;
-        if (!due) return false;
-        await releaseEscrow(connection, transaction, 'auto');
-        return true;
-      });
-      (done ? summary.confirmed : summary.skipped).push(id);
-    } catch (error) {
-      console.error(`자동 구매확정 실패 (거래 #${id}):`, error);
-      summary.failed.push({ id, error: error.message });
-    }
-  }
+  await settleEach(confirmIds, '자동 구매확정', async (connection, trade) => {
+    // 후보를 고른 뒤 잠그기 전까지 사이에 구매자가 직접 확정했을 수 있다.
+    if (!trade.isAutoConfirmDue) return false;
+    const settlement = trade.autoConfirm();
+    await trades.save(connection, trade);
+    await payDesigner(connection, trade, settlement);
+    return true;
+  }, summary, summary.confirmed);
 
-  for (const { id } of cancelTargets) {
-    try {
-      const done = await withTransaction(async (connection) => {
-        const transaction = await lockTransaction(connection, id);
-        const due = transaction
-          && transaction.status === S.PENDING
-          && transaction.escrow_status === E.HELD
-          && Number(transaction.cancel_due) === 1;
-        if (!due) return false;
-        await refundEscrow(connection, transaction, {
-          cancelledBy: 'auto',
-          reason: '디자이너 미착수 자동 취소',
-        });
-        return true;
-      });
-      (done ? summary.cancelled : summary.skipped).push(id);
-    } catch (error) {
-      console.error(`자동 취소 실패 (거래 #${id}):`, error);
-      summary.failed.push({ id, error: error.message });
-    }
-  }
+  await settleEach(cancelIds, '자동 취소', async (connection, trade) => {
+    if (!trade.isAutoCancelDue) return false;
+    const refund = trade.autoCancel();
+    await trades.save(connection, trade);
+    await refundBuyer(connection, trade, refund);
+    return true;
+  }, summary, summary.cancelled);
 
   return summary;
 }

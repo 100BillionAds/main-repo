@@ -74,11 +74,40 @@ stateDiagram-v2
 ```
 src/domain/
 ├── errors.js                 # DomainError: 규칙 위반을 상태 코드와 함께 표현
+├── shared/Money.js           # 값 객체: 금액 (원 단위 정수, 음수 불가, 비율은 정수 계산)
 ├── points/ledger.js          # 포인트 원장: 잔액을 바꾸는 유일한 통로
 └── escrow/
     ├── policy.js             # 순수 규칙: 상태 전환, 권한, 수수료, 기한
-    └── escrowService.js      # 보관 / 상태 변경 / 정산 / 환불 / 자동정산 배치
+    ├── Trade.js              # 엔티티: 거래 한 건의 상태와 규칙 (DB 를 모름)
+    ├── tradeRepository.js    # 저장소: transactions 테이블 읽기/쓰기 (SQL 은 여기에만)
+    └── escrowService.js      # 응용 서비스: 읽기 → 엔티티에 시키기 → 저장 → 포인트 이동
 ```
+
+### 역할 나누기 (DDD 전술 패턴)
+
+| 종류 | 파일 | 책임 | DB 접근 |
+|---|---|---|---|
+| 값 객체 | `Money` | "금액"이라는 값. 잘못된 금액이 만들어지지 않게 한다 | 없음 |
+| 엔티티 | `Trade` | 거래가 어떤 상태에서 무엇을 할 수 있는지. 정산·환불 금액 계산 | 없음 |
+| 저장소 | `tradeRepository` | 거래를 잠가서 읽고, 바뀐 부분만 저장 | 있음 |
+| 응용 서비스 | `escrowService` | 트랜잭션을 열고 위 셋과 원장을 순서대로 호출 | 트랜잭션만 |
+
+구매확정 한 번이 흘러가는 순서입니다.
+
+```
+PATCH /api/transactions/7  { status: "completed" }
+ └─ escrowService.changeTransactionStatus
+     ├─ tradeRepository.findByIdForUpdate(7)   거래 행을 잠그고 Trade 로 만든다
+     ├─ trade.changeStatus(actor, "completed") 권한·상태 검사, 수수료 계산 → { commission, payout }
+     ├─ tradeRepository.save(trade)            바뀐 컬럼만 UPDATE
+     └─ ledger.creditPoints(디자이너, payout)  포인트 지급 + 내역 기록
+```
+
+규칙이 `Trade` 안에 있고 `Trade` 는 DB 를 모르기 때문에, 상태 전환·권한·금액 계산은 DB 없이 단위 테스트(`__tests__/domain/trade.test.js`)로 검증합니다. 동시성처럼 DB 가 있어야 확인되는 것만 통합 테스트가 맡습니다.
+
+**시각은 DB 시계가 기준입니다.** `Trade` 는 "지금", "7일 뒤" 라는 뜻만 남기고, 저장소가 `NOW()`, `DATE_ADD(NOW(), INTERVAL 7 DAY)` 로 옮깁니다. 기한이 지났는지도 DB 가 판단해 `confirmDue` / `cancelDue` 로 넘겨줍니다. 서버와 DB 의 시계나 시간대가 달라도 기한이 어긋나지 않습니다.
+
+**수수료는 정수로 계산합니다.** `3000 * 0.29` 는 JS 에서 `869.9999999999999` 가 되어 내림하면 1원이 부족합니다. `Money.percentFloor` 는 비율을 0.01% 단위 정수로 바꿔 계산합니다. 기본 수수료율 10% 에서는 결과가 이전과 같습니다.
 
 API 라우트는 인증과 입출력만 맡고, 규칙은 모두 `src/domain` 에 있습니다.
 

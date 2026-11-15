@@ -1,3 +1,5 @@
+import { Money } from '@/domain/shared/Money';
+
 /**
  * 에스크로 정책 (순수 함수 — DB 의존 없음)
  *
@@ -65,12 +67,15 @@ export function isValidTransition(from, to) {
 }
 
 /**
- * 정산 금액 계산. 수수료는 원 단위 내림.
+ * 정산 금액 계산. 수수료는 원 단위 내림. 수수료 + 지급액은 항상 원금과 같다.
+ * 비율 계산은 Money 가 정수로 처리한다 (부동소수점 오차로 1원이 틀리는 일을 막는다).
+ * @param {number|Money} amount
  * @returns {{ commission: number, payout: number }}
  */
 export function calculateSettlement(amount, rate = getCommissionRate()) {
-  const commission = Math.floor(amount * rate);
-  return { commission, payout: amount - commission };
+  const total = Money.of(amount);
+  const commission = total.percentFloor(rate);
+  return { commission: commission.toNumber(), payout: total.minus(commission).toNumber() };
 }
 
 /**

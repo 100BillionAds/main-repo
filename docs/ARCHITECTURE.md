@@ -281,12 +281,17 @@ io.on('connection', (socket) => {
 
 ```
 src/domain/
-├── errors.js                 # DomainError (규칙 위반 + HTTP 상태 코드)
+├── errors.js                 # DomainError: 규칙 위반을 상태 코드와 함께 표현
+├── shared/Money.js           # 값 객체: 금액 (원 단위 정수, 음수 불가, 비율은 정수 계산)
 ├── points/ledger.js          # 포인트 원장: 잔액을 바꾸는 유일한 통로
 └── escrow/
-    ├── policy.js             # 순수 규칙: 상태 전환, 권한, 수수료, 자동정산 기한
-    └── escrowService.js      # 보관 / 상태 변경 / 정산 / 환불 / 자동정산 배치
+    ├── policy.js             # 순수 규칙: 상태 전환, 권한, 수수료, 기한
+    ├── Trade.js              # 엔티티: 거래 한 건의 상태와 규칙 (DB 를 모름)
+    ├── tradeRepository.js    # 저장소: transactions 테이블 읽기/쓰기 (SQL 은 여기에만)
+    └── escrowService.js      # 응용 서비스: 읽기 → 엔티티에 시키기 → 저장 → 포인트 이동
 ```
+
+값 객체·엔티티·저장소·응용 서비스의 역할 구분은 [ESCROW.md](./ESCROW.md#역할-나누기-ddd-전술-패턴) 에 있습니다.
 
 **라우트와 서비스의 관계**
 
