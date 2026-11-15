@@ -213,6 +213,31 @@ erDiagram
 
 `src/lib/migrations/` 에 새 마이그레이션 파일을 추가하고 `index.js` 목록 끝에 등록합니다. 이미 적용된 마이그레이션은 수정하지 않습니다. 절차와 규칙은 [MIGRATIONS.md](./MIGRATIONS.md) 에 있습니다.
 
+### outbox_events
+
+도메인 이벤트 아웃박스 ([EVENTS.md](./EVENTS.md)). 업무 변경과 같은 트랜잭션에서 기록됩니다.
+
+| 컬럼 | 설명 |
+|---|---|
+| `id` | PK. 처리 순서 |
+| `event_type` | 예: `trade.completed` |
+| `aggregate_type`, `aggregate_id` | 어느 대상의 이벤트인지 (예: `trade`, 거래 id) |
+| `payload` | 이벤트 내용 (JSON) |
+| `attempts`, `last_error` | 처리 실패 횟수와 마지막 원인 |
+| `claim_token`, `enqueued_at` | 릴레이가 가져간 표시와 시각 |
+| `processed_at` | 처리 완료 시각. NULL 이면 미처리 |
+
+### notifications
+
+| 컬럼 | 설명 |
+|---|---|
+| `id` | PK |
+| `user_id` | 받는 사람 (FK → users) |
+| `type` | 원인이 된 이벤트 종류 |
+| `title`, `body`, `link` | 내용과 이동할 주소 |
+| `event_id` | 원인이 된 아웃박스 이벤트. `(event_id, user_id)` UNIQUE 로 중복 알림을 막습니다 |
+| `read_at` | 읽은 시각. NULL 이면 안 읽음 |
+
 ### ai_requests
 
 AI 호출 기록 ([LLM.md](./LLM.md)). 메모 원문과 응답은 저장하지 않습니다.

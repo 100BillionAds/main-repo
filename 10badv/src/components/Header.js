@@ -22,6 +22,7 @@ export default function Header() {
     { href: '/portfolios', label: '포트폴리오', icon: '🛒' },
     { href: '/designers', label: '디자이너', icon: '🧑‍🎨' },
     ...(isReadOnlyMode ? [] : [{ href: '/dashboard', label: '대시보드', icon: '⚡' }]),
+    ...(session ? [{ href: '/notifications', label: '알림', icon: '🔔' }] : []),
   ];
 
   // 관리자 전용 메뉴

@@ -2,6 +2,10 @@ import { withTransaction } from '@/lib/db';
 import { DomainError } from '@/domain/errors';
 import { creditPoints, debitPoints } from '@/domain/points/ledger';
 import * as trades from '@/domain/escrow/tradeRepository';
+import * as outbox from '@/domain/events/outboxRepository';
+import { EVENT } from '@/domain/events/eventTypes';
+import { getAutoCancelDays } from '@/domain/escrow/policy';
+import { kickRelay } from '@/lib/events/eventBus';
 
 /**
  * 에스크로 서비스 (응용 서비스)
@@ -12,6 +16,10 @@ import * as trades from '@/domain/escrow/tradeRepository';
  *   2. 거래에게 일을 시킨다 (규칙 판단, 금액 계산)  → Trade 엔티티
  *   3. 바뀐 거래를 저장한다                        → tradeRepository
  *   4. 포인트를 실제로 옮긴다                      → 포인트 원장(ledger)
+ *   5. 일어난 일을 이벤트로 남긴다                 → 아웃박스 (같은 트랜잭션)
+ *
+ * 5번이 핵심이다. 상태 변경·포인트 이동·이벤트 기록이 한 트랜잭션이라, "정산은 됐는데 이벤트가 없다"거나
+ * "이벤트는 나갔는데 정산이 롤백됐다"가 일어나지 않는다. 알림 같은 후속 작업은 커밋된 뒤 따로 처리된다.
  *
  *   보관(hold)   : 구매/제안 수락 시 구매자 포인트를 차감해 거래에 묶는다.
  *   정산(release): 구매확정(수동/자동) 시 수수료를 떼고 디자이너에게 지급한다.
@@ -26,6 +34,15 @@ import * as trades from '@/domain/escrow/tradeRepository';
 function toId(value) {
   const id = Number(value);
   return Number.isSafeInteger(id) && id > 0 ? id : null;
+}
+
+function tradeCreatedEvent({ transactionId, buyerId, designerId, amount, title }) {
+  return {
+    type: EVENT.TRADE_CREATED,
+    aggregateType: 'trade',
+    aggregateId: transactionId,
+    payload: { tradeId: transactionId, buyerId, designerId, amount, title, autoCancelDays: getAutoCancelDays() },
+  };
 }
 
 /** 정산 결과대로 디자이너에게 대금을 지급한다. */
@@ -66,7 +83,7 @@ export async function purchasePortfolio({ buyerId, portfolioId, requestedAmount 
     throw new DomainError('필수 정보가 누락되었습니다.');
   }
 
-  return withTransaction(async (connection) => {
+  const result = await withTransaction(async (connection) => {
     const [portfolios] = await connection.execute(
       "SELECT id, designer_id, title, price FROM portfolios WHERE id = ? AND status = 'approved'",
       [portfolio]
@@ -108,8 +125,16 @@ export async function purchasePortfolio({ buyerId, portfolioId, requestedAmount 
       referenceId: transactionId,
     });
 
+    await outbox.append(connection, [
+      tradeCreatedEvent({ transactionId, buyerId: buyer, designerId: Number(item.designer_id), amount: price, title: item.title }),
+    ]);
+
     return { transactionId, points };
   });
+
+  // 커밋된 뒤에 후속 처리를 깨운다. 실패해도 이벤트는 아웃박스에 남아 있어 나중에 처리된다.
+  kickRelay();
+  return result;
 }
 
 /**
@@ -126,7 +151,7 @@ export async function decideProposal({ proposalId, clientId, decision }) {
     throw new DomainError('올바른 상태값이 아닙니다.');
   }
 
-  return withTransaction(async (connection) => {
+  const result = await withTransaction(async (connection) => {
     const [refs] = await connection.execute('SELECT request_id FROM proposals WHERE id = ?', [id]);
     if (refs.length === 0) {
       throw new DomainError('제안을 찾을 수 없습니다.', { status: 404 });
@@ -193,8 +218,21 @@ export async function decideProposal({ proposalId, clientId, decision }) {
       referenceId: transactionId,
     });
 
+    await outbox.append(connection, [
+      tradeCreatedEvent({
+        transactionId,
+        buyerId: client,
+        designerId: Number(proposal.designer_id),
+        amount,
+        title: request.title,
+      }),
+    ]);
+
     return { proposalId: id, transactionId };
   });
+
+  kickRelay();
+  return result;
 }
 
 /**
@@ -210,7 +248,7 @@ export async function changeTransactionStatus({ transactionId, actor, status }) 
     throw new DomainError('상태 값이 필요합니다.');
   }
 
-  return withTransaction(async (connection) => {
+  const result = await withTransaction(async (connection) => {
     const trade = await trades.findByIdForUpdate(connection, id);
     if (!trade) {
       throw new DomainError('거래를 찾을 수 없습니다.', { status: 404 });
@@ -218,6 +256,7 @@ export async function changeTransactionStatus({ transactionId, actor, status }) 
 
     const outcome = trade.changeStatus(actor, status);
     await trades.save(connection, trade);
+    await outbox.append(connection, trade.pullEvents());
 
     if (outcome.payout !== undefined) {
       await payDesigner(connection, trade, outcome);
@@ -229,6 +268,9 @@ export async function changeTransactionStatus({ transactionId, actor, status }) 
     }
     return { id, status };
   });
+
+  kickRelay();
+  return result;
 }
 
 /**
@@ -269,6 +311,7 @@ export async function runAutoSettlement({ limit = 100 } = {}) {
     if (!trade.isAutoConfirmDue) return false;
     const settlement = trade.autoConfirm();
     await trades.save(connection, trade);
+    await outbox.append(connection, trade.pullEvents());
     await payDesigner(connection, trade, settlement);
     return true;
   }, summary, summary.confirmed);
@@ -277,9 +320,11 @@ export async function runAutoSettlement({ limit = 100 } = {}) {
     if (!trade.isAutoCancelDue) return false;
     const refund = trade.autoCancel();
     await trades.save(connection, trade);
+    await outbox.append(connection, trade.pullEvents());
     await refundBuyer(connection, trade, refund);
     return true;
   }, summary, summary.cancelled);
 
+  kickRelay();
   return summary;
 }

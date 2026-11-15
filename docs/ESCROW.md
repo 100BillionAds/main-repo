@@ -103,6 +103,8 @@ PATCH /api/transactions/7  { status: "completed" }
      └─ ledger.creditPoints(디자이너, payout)  포인트 지급 + 내역 기록
 ```
 
+상태가 바뀔 때 `Trade` 는 도메인 이벤트(`trade.completed` 등)도 함께 남기고, 서비스가 같은 트랜잭션에서 아웃박스에 적습니다. 알림 같은 후속 작업은 커밋된 뒤 따로 처리됩니다 ([EVENTS.md](./EVENTS.md)).
+
 규칙이 `Trade` 안에 있고 `Trade` 는 DB 를 모르기 때문에, 상태 전환·권한·금액 계산은 DB 없이 단위 테스트(`__tests__/domain/trade.test.js`)로 검증합니다. 동시성처럼 DB 가 있어야 확인되는 것만 통합 테스트가 맡습니다.
 
 **시각은 DB 시계가 기준입니다.** `Trade` 는 "지금", "7일 뒤" 라는 뜻만 남기고, 저장소가 `NOW()`, `DATE_ADD(NOW(), INTERVAL 7 DAY)` 로 옮깁니다. 기한이 지났는지도 DB 가 판단해 `confirmDue` / `cancelDue` 로 넘겨줍니다. 서버와 DB 의 시계나 시간대가 달라도 기한이 어긋나지 않습니다.

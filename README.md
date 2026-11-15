@@ -72,6 +72,7 @@ npm run dev
 - [스키마 마이그레이션](./docs/MIGRATIONS.md)
 - [AI (LLM) 기능](./docs/LLM.md)
 - [Redis: 캐시와 요청 제한](./docs/REDIS.md)
+- [이벤트와 메시지 큐](./docs/EVENTS.md)
 - [배포 가이드](./docs/DEPLOYMENT.md)
 - [기여 가이드](./docs/CONTRIBUTING.md)
 - [변경 이력](./docs/CHANGELOG.md)
