@@ -3,7 +3,8 @@
  * 작성 규칙은 docs/MIGRATIONS.md 참고.
  */
 import baseline from './0001_baseline.js';
+import addAiRequests from './0002_add_ai_requests.js';
 
-const migrations = [baseline];
+const migrations = [baseline, addAiRequests];
 
 export default migrations;

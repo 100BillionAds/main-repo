@@ -4,37 +4,10 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import pool, { withTransaction } from '@/lib/db';
 import { creditPoints } from '@/domain/points/ledger';
 import { errorResponse } from '@/lib/apiResponse';
+import { fetchPayment } from '@/lib/payment/portoneGateway';
 
 const PORTONE_API_SECRET = process.env.PORTONE_API_SECRET;
 const PORTONE_MOCK_MODE = process.env.PORTONE_MOCK_MODE === 'true' && process.env.NODE_ENV !== 'production';
-
-// 포트원 V2 API로 결제 정보 검증 (V2는 API Secret으로 직접 인증)
-async function verifyPaymentFromPortOne(paymentId) {
-  const response = await fetch(
-    `https://api.portone.io/payments/${encodeURIComponent(paymentId)}`,
-    {
-      headers: {
-        'Authorization': `PortOne ${PORTONE_API_SECRET}`,
-        'Content-Type': 'application/json'
-      }
-    }
-  );
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    // 원인 파악용: 상태코드와 포트원 오류 type만 남긴다 (시크릿/결제 정보는 로그에 남기지 않음)
-    console.error('포트원 결제 조회 실패', {
-      status: response.status,
-      type: errorData.type,
-      message: errorData.message,
-    });
-    const error = new Error(errorData.message || `결제 검증 실패 (포트원 ${response.status} ${errorData.type || ''})`.trim());
-    error.upstreamStatus = response.status;
-    throw error;
-  }
-
-  return response.json();
-}
 
 async function ensurePurchaseChatRoom(connection, { buyerId, portfolioId, paymentId }) {
   const [portfolios] = await connection.execute(
@@ -126,7 +99,7 @@ export async function POST(request) {
           { status: 500 }
         );
       }
-      paymentData = await verifyPaymentFromPortOne(paymentId);
+      paymentData = await fetchPayment(paymentId);
     }
 
     // 포트원 V2 응답 형식: amount.total (V1은 amount였음)

@@ -235,3 +235,61 @@
     padding: 16px;
   }
 }
+
+/* AI 초안 작성 */
+.aiPanel {
+  background: #f5f3ff;
+  border: 2px solid #ddd6fe;
+  border-radius: 24px;
+  padding: 28px 40px;
+  margin-bottom: 24px;
+}
+
+.aiTitle {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #2d3748;
+  margin: 0 0 8px;
+}
+
+.aiHint {
+  font-size: 0.95rem;
+  color: #4a5568;
+  line-height: 1.6;
+  margin: 0 0 16px;
+}
+
+.aiPanel .textarea {
+  min-height: 84px;
+  background: white;
+}
+
+.aiActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.aiCount {
+  font-size: 0.85rem;
+  color: #718096;
+}
+
+.aiActions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.aiError {
+  margin: 12px 0 0;
+  color: #c53030;
+  font-size: 0.95rem;
+}
+
+@media (max-width: 768px) {
+  .aiPanel {
+    padding: 20px;
+  }
+}

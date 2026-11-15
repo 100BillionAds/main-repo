@@ -70,6 +70,7 @@ npm run dev
 - [데이터베이스 ERD](./docs/ERD.md)
 - [에스크로 자동정산](./docs/ESCROW.md)
 - [스키마 마이그레이션](./docs/MIGRATIONS.md)
+- [AI (LLM) 기능](./docs/LLM.md)
 - [배포 가이드](./docs/DEPLOYMENT.md)
 - [기여 가이드](./docs/CONTRIBUTING.md)
 - [변경 이력](./docs/CHANGELOG.md)

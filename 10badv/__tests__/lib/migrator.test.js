@@ -53,6 +53,8 @@ function createFakePool({ lockAcquired = 1, existingColumns = [], failOn = null 
 }
 
 const second = { id: '0002_example', steps: ['SELECT 1'] };
+// 러너 동작은 첫 마이그레이션 하나로 검증한다 (목록이 늘어도 테스트가 흔들리지 않게).
+const baselineOnly = [migrations[0]];
 
 describe('마이그레이션 정의 검증', () => {
   it('실제 마이그레이션 목록은 규칙을 지킨다', () => {
@@ -127,7 +129,7 @@ describe('실행 (runMigrations)', () => {
   it('빈 DB: 전부 실행하고 기록한 뒤 잠금을 푼다', async () => {
     const { pool, state } = createFakePool();
 
-    const result = await runMigrations(pool, migrations);
+    const result = await runMigrations(pool, baselineOnly);
 
     expect(result.applied).toEqual(['0001_baseline']);
     expect(state.rows).toEqual([{ id: '0001_baseline', checksum: computeChecksum(migrations[0]) }]);
@@ -137,10 +139,10 @@ describe('실행 (runMigrations)', () => {
 
   it('두 번째 실행은 아무것도 하지 않는다', async () => {
     const { pool, state } = createFakePool();
-    await runMigrations(pool, migrations);
+    await runMigrations(pool, baselineOnly);
     const before = state.log.length;
 
-    const result = await runMigrations(pool, migrations);
+    const result = await runMigrations(pool, baselineOnly);
 
     expect(result.applied).toEqual([]);
     expect(state.log.slice(before).some((line) => line.startsWith('CREATE TABLE IF NOT EXISTS users'))).toBe(false);
@@ -148,18 +150,18 @@ describe('실행 (runMigrations)', () => {
 
   it('컬럼을 새로 추가했을 때만 onAdded(백필)를 실행한다', async () => {
     const fresh = createFakePool();
-    await runMigrations(fresh.pool, migrations);
+    await runMigrations(fresh.pool, baselineOnly);
     expect(fresh.state.log.some((line) => line.startsWith('UPDATE transactions'))).toBe(true);
 
     const existing = createFakePool({ existingColumns: ['transactions.escrow_status'] });
-    await runMigrations(existing.pool, migrations);
+    await runMigrations(existing.pool, baselineOnly);
     expect(existing.state.log.some((line) => line.startsWith('UPDATE transactions'))).toBe(false);
   });
 
   it('잠금을 얻지 못하면 스키마를 건드리지 않는다', async () => {
     const { pool, state } = createFakePool({ lockAcquired: 0 });
 
-    await expect(runMigrations(pool, migrations)).rejects.toMatchObject({ code: 'LOCK_TIMEOUT' });
+    await expect(runMigrations(pool, baselineOnly)).rejects.toMatchObject({ code: 'LOCK_TIMEOUT' });
 
     expect(state.log.some((line) => line.startsWith('CREATE TABLE'))).toBe(false);
     // 내가 잡지 않은 잠금을 풀면 안 된다
@@ -170,7 +172,7 @@ describe('실행 (runMigrations)', () => {
   it('중간에 실패하면 기록하지 않고 잠금을 풀며, 다시 실행하면 처음부터 재시도한다', async () => {
     const { pool, state } = createFakePool({ failOn: /^CREATE TABLE IF NOT EXISTS reviews/ });
 
-    await expect(runMigrations(pool, migrations)).rejects.toMatchObject({
+    await expect(runMigrations(pool, baselineOnly)).rejects.toMatchObject({
       code: 'STEP_FAILED',
       migrationId: '0001_baseline',
     });
@@ -178,7 +180,7 @@ describe('실행 (runMigrations)', () => {
     expect(state.log[state.log.length - 1]).toContain('RELEASE_LOCK');
 
     state.failOn = null;
-    const retry = await runMigrations(pool, migrations);
+    const retry = await runMigrations(pool, baselineOnly);
     expect(retry.applied).toEqual(['0001_baseline']);
   });
 });
