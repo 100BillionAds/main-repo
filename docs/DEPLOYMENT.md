@@ -32,6 +32,39 @@ GitHub (main 머지)
   Caddy (:80, :443, HTTPS 자동) → app (:3000) → MySQL
 ```
 
+### 2-0. Oracle Cloud 무료 서버로 시작하기 (현재 운영 방식)
+
+같은 Docker 이미지를 쓰므로 나중에 Railway 같은 유료 플랫폼으로 옮길 때는 DB 덤프를 옮기고 도메인만 바꾸면 됩니다.
+
+**알아둘 제약**
+- 무료 ARM(Ampere A1) 한도는 합계 2 OCPU, 12GB 메모리입니다 (2026년 6월에 절반으로 줄었음).
+- 7일 동안 CPU, 네트워크, 메모리 사용률이 모두 20% 미만이면 유휴 서버로 보고 회수할 수 있습니다. 사용자가 적은 초기에는 CPU 가 거의 안 쓰이므로, **메모리를 4GB 로 작게 잡아** 메모리 사용률을 20% 위로 유지합니다 (MySQL + 앱 + Caddy 가 약 1.2~1.5GB).
+- 지역에 따라 ARM 서버 재고가 없어 생성이 실패할 수 있습니다. 시간을 두고 다시 시도합니다.
+- 서버가 ARM 이므로 CD 가 amd64/arm64 이미지를 함께 빌드합니다.
+- SLA 가 없습니다. 2-4 의 백업을 꼭 설정합니다.
+
+**순서**
+1. Oracle Cloud 가입 (카드 인증 필요, 과금은 되지 않음). 홈 리전은 나중에 바꿀 수 없으니 `South Korea Central (Seoul)` 또는 `South Korea North (Chuncheon)` 를 고릅니다.
+2. Compute → Instances → Create instance
+   - Image: Canonical Ubuntu 24.04
+   - Shape: `VM.Standard.A1.Flex`, **OCPU 2, Memory 4GB**
+   - SSH 키: "Generate a key pair" 로 만들고 개인키를 내려받아 보관 (CD 의 `DEPLOY_SSH_KEY` 로도 사용)
+   - Public IP 할당
+3. 인스턴스의 Subnet → Security List → Ingress Rules 에 TCP 80, 443 을 `0.0.0.0/0` 으로 추가합니다.
+4. 도메인 연결. 도메인이 없으면 무료 서브도메인(DuckDNS 등)으로 시작해도 됩니다. A 레코드를 서버 공인 IP 로 지정합니다.
+5. 서버에 접속해 설정 스크립트를 실행합니다. Oracle 의 Ubuntu 이미지는 iptables 가 80/443 을 막고 있어서, 스크립트가 이를 열어 줍니다.
+
+```bash
+ssh -i <개인키> ubuntu@<서버 IP>
+curl -fsSL https://raw.githubusercontent.com/100BillionAds/main-repo/main/deploy/oracle-setup.sh | bash
+# 로그아웃 후 다시 접속
+nano ~/10badv/.env          # DOMAIN 등 빈 값 입력 (비밀값은 자동 생성됨)
+cd ~/10badv && docker compose -f docker-compose.prod.yml up -d
+```
+
+6. GitHub 패키지(`ghcr.io/100billionads/main-repo`)를 Public 으로 바꾸면 서버에서 `docker login` 없이 이미지를 받을 수 있습니다. 저장소가 공개라 이미지에 숨길 것은 없습니다 (비밀값은 모두 서버 `.env` 에 있음).
+7. 아래 2-2 대로 자동 배포를 켭니다. `DEPLOY_USER` 는 `ubuntu` 입니다.
+
 ### 2-1. 서버 준비 (최초 1회)
 
 1. Ubuntu 서버를 준비합니다 (Oracle Cloud 무료 티어, AWS EC2, 일반 VPS 등). 80, 443 포트를 엽니다.

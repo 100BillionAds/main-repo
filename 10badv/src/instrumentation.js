@@ -6,6 +6,8 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME !== 'nodejs') return;
   if (process.env.NODE_ENV === 'test') return;
+  // next build 중에는 DB 에 접속하지 않는다 (CI·도커 빌드에는 DB 가 없다)
+  if (process.env.NEXT_PHASE === 'phase-production-build') return;
   if (!process.env.DATABASE_URL && !process.env.DATABASE_HOST) return;
 
   const { initializeDatabase } = await import('@/lib/db');
