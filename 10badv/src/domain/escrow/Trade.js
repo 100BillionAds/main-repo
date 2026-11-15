@@ -1,5 +1,6 @@
 import { DomainError } from '@/domain/errors';
 import { Money } from '@/domain/shared/Money';
+import { EVENT } from '@/domain/events/eventTypes';
 import {
   ESCROW_STATUS,
   TRANSACTION_STATUS,
@@ -40,6 +41,7 @@ function toId(value) {
 
 export class Trade {
   #changes = {};
+  #events = [];
 
   constructor({ id, buyerId, designerId, amount, status, escrowStatus, paymentStatus, confirmDue, cancelDue }) {
     this.id = id;
@@ -141,6 +143,25 @@ export class Trade {
     return changes;
   }
 
+  /**
+   * 이번에 일어난 도메인 이벤트를 꺼내 간다 (꺼내면 비워진다).
+   * 서비스가 거래 저장과 "같은 트랜잭션"에서 아웃박스에 적는다.
+   */
+  pullEvents() {
+    const events = this.#events;
+    this.#events = [];
+    return events;
+  }
+
+  #record(type, payload = {}) {
+    this.#events.push({
+      type,
+      aggregateType: 'trade',
+      aggregateId: this.id,
+      payload: { tradeId: this.id, buyerId: this.buyerId, designerId: this.designerId, ...payload },
+    });
+  }
+
   #apply(changes) {
     if (changes.status !== undefined) this.status = changes.status;
     if (changes.escrowStatus !== undefined) this.escrowStatus = changes.escrowStatus;
@@ -150,21 +171,25 @@ export class Trade {
 
   #startWork() {
     this.#apply({ status: S.IN_PROGRESS, startedAt: dbNow, autoCancelAt: null });
+    this.#record(EVENT.TRADE_WORK_STARTED);
     return {};
   }
 
   #submitWork() {
+    const autoConfirmDays = getAutoConfirmDays();
     this.#apply({
       status: S.AWAITING_CONFIRMATION,
       submittedAt: dbNow,
-      autoConfirmAt: daysFromNow(getAutoConfirmDays()),
+      autoConfirmAt: daysFromNow(autoConfirmDays),
       autoCancelAt: null,
     });
+    this.#record(EVENT.TRADE_WORK_SUBMITTED, { autoConfirmDays });
     return {};
   }
 
   #requestRevision() {
     this.#apply({ status: S.IN_PROGRESS, submittedAt: null, autoConfirmAt: null });
+    this.#record(EVENT.TRADE_REVISION_REQUESTED);
     return {};
   }
 
@@ -187,6 +212,7 @@ export class Trade {
       autoConfirmAt: null,
       autoCancelAt: null,
     });
+    this.#record(EVENT.TRADE_COMPLETED, { amount: this.amount.toNumber(), commission, payout, settledBy });
     return { commission, payout, settledBy };
   }
 
@@ -206,6 +232,8 @@ export class Trade {
       changes.paymentStatus = 'refunded';
     }
     this.#apply(changes);
-    return { refunded: held ? this.amount.toNumber() : 0, reason: reason || null };
+    const refunded = held ? this.amount.toNumber() : 0;
+    this.#record(EVENT.TRADE_CANCELLED, { amount: this.amount.toNumber(), refunded, cancelledBy, reason: reason || null });
+    return { refunded, reason: reason || null };
   }
 }

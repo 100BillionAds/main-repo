@@ -3,6 +3,10 @@ const nextConfig = {
   /* config options here */
   reactCompiler: true,
 
+  // 서버 전용 패키지는 번들에 넣지 않고 node_modules 에서 그대로 불러온다.
+  // (BullMQ 와 우리 코드가 같은 ioredis 모듈을 쓰게 하고, 번들링으로 인한 문제를 피한다)
+  serverExternalPackages: ['bullmq', 'ioredis'],
+
   // 프로덕션 최적화
   compiler: {
     // 운영에서도 오류/경고 로그는 남긴다 (장애 원인 추적용)

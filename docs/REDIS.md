@@ -8,8 +8,9 @@ Redis 를 어디에, 왜 쓰는지와 장애 때의 동작을 설명합니다.
 |---|---|---|---|
 | AI 응답 캐시 | `tenbadv:cache:llm:<기능>:<프롬프트 버전>:<제공자>:<모델>:<입력 해시>` | 24시간 | `domain/ai/requestDraftService.js` |
 | 요청 제한 횟수 | `tenbadv:rl:<기준>` (예: `ai:draft:42`, `register:1.2.3.4`) | 구간 길이 (예: 1분) | `lib/rateLimit.js` |
+| 작업 큐 | `bull:tenbadv-events:*` | 완료 시 삭제 | `lib/events/queue.js` — [EVENTS.md](./EVENTS.md) |
 
-둘 다 **없어져도 되는 데이터**입니다. 캐시가 사라지면 LLM 을 한 번 더 부르면 되고, 횟수가 사라지면 다시 세면 됩니다. 돈·거래 같은 원본 데이터는 Redis 에 두지 않습니다 (MySQL/TiDB 에만).
+모두 **없어져도 되는 데이터**입니다. 캐시가 사라지면 LLM 을 한 번 더 부르면 되고, 횟수가 사라지면 다시 세면 되고, 큐가 사라지면 DB 의 아웃박스에서 다시 보냅니다. 돈·거래 같은 원본 데이터는 Redis 에 두지 않습니다 (MySQL/TiDB 에만).
 
 ## 용어
 
@@ -110,7 +111,7 @@ if count == 1 then redis.call('PEXPIRE', KEYS[1], ARGV[1]) end
 `render.yaml` 에 Key Value 인스턴스 `tenbadv-cache` (무료 플랜) 가 정의되어 있고, 내부 접속 주소가 웹 서비스의 `REDIS_URL` 로 자동 연결됩니다.
 
 - 무료 플랜은 **재시작하면 데이터가 사라집니다.** 캐시·횟수만 두므로 괜찮습니다.
-- 메모리가 차면 오래 안 쓴 키부터 지웁니다 (`allkeys-lru`).
+- 메모리가 차도 키를 임의로 지우지 않습니다 (`noeviction`). 작업 큐의 키가 일부만 지워지면 큐가 깨지기 때문입니다. 캐시 키는 모두 만료 시간이 있어 스스로 사라지고, 가득 차서 쓰기가 실패하면 캐시는 건너뜁니다.
 - 외부 접속은 막혀 있고 (`ipAllowList: []`), Render 내부 네트워크에서만 접속합니다.
 
 ## 로컬에서 Redis 쓰기
@@ -136,5 +137,4 @@ docker run -d -p 6379:6379 redis:7-alpine
 ## 아직 없는 것
 
 - 캐시 쏠림(stampede) 방지: 같은 입력이 동시에 여러 번 오면 각자 LLM 을 부릅니다.
-- 작업 큐 (5단계: BullMQ 가 이 Redis 를 사용)
 - `/api/health` 에 Redis 상태 포함 (6단계)

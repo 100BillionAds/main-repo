@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 이벤트 기반 후속 처리: 거래 도메인 이벤트, 트랜잭션 아웃박스(`outbox_events`), BullMQ 큐와 워커(Redis 가 없으면 즉시 처리), 멱등한 알림 소비자. 문서 `docs/EVENTS.md`
+- 알림: 거래 진행 상황을 당사자에게 알림 (`/notifications`, `GET·PATCH /api/notifications`)
 - Redis 도입: AI 응답 캐시(같은 입력은 LLM 을 다시 부르지 않음), Lua 스크립트로 원자적인 요청 제한. Redis 가 없거나 장애면 메모리로 동작. Render Key Value(무료) 정의 추가. 문서 `docs/REDIS.md`
 - AI 초안 작성에 사용자별 분당 5회 제한, `ai_requests.cache_hit` 컬럼
 - AI 의뢰서 초안 작성: 의뢰 작성 화면에서 짧은 메모를 의뢰서 형태로 다듬어 스트리밍으로 채워 줌 (`POST /api/ai/request-draft`)
@@ -28,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 포트원 결제 조회 코드를 `src/lib/payment/portoneGateway.js` 로 분리 (동작 동일)
 
 ### Fixed
+- 서버 시작 후 첫 요청에서 Redis 연결이 준비되지 않아 메모리 저장소로 넘어가던 문제 (시작 시 연결을 미리 연다)
 - 수수료율이 10% 가 아닐 때 부동소수점 오차로 수수료가 1원 적게 계산될 수 있던 문제 (예: 3,000원 × 29% = 869원 → 870원)
 - 제안 수락 시 구매자 포인트를 차감하지 않고 거래가 만들어져, 거래 완료 시 디자이너에게 없는 포인트가 지급되던 문제
 - 결제 검증 요청이 동시에 오면 포인트가 중복 충전될 수 있던 문제
