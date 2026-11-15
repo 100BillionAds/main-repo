@@ -79,6 +79,47 @@ jobs:
       - name: Integration tests
         run: npm run test:integration
 
+  # 운영 DB 인 TiDB 에서도 같은 통합 테스트가 통과하는지 확인한다 (잠금·트랜잭션 동작 차이 검증).
+  integration-tidb:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 10badv
+    env:
+      DATABASE_HOST: 127.0.0.1
+      DATABASE_PORT: 4000
+      DATABASE_USER: root
+      DATABASE_PASSWORD: ''
+      DATABASE_NAME: tenbadv_test
+      NEXTAUTH_SECRET: ci-test-secret
+      NEXTAUTH_URL: http://localhost:3000
+      NODE_ENV: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Start TiDB
+        run: |
+          docker run -d --name tidb -p 4000:4000 pingcap/tidb:v8.5.0
+          for i in $(seq 1 30); do
+            mysql -h 127.0.0.1 -P 4000 -u root -e 'SELECT 1' >/dev/null 2>&1 && break
+            sleep 2
+          done
+          mysql -h 127.0.0.1 -P 4000 -u root -e 'CREATE DATABASE IF NOT EXISTS tenbadv_test; SELECT tidb_version()\G'
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 10badv/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Integration tests
+        run: npm run test:integration
+
   # 운영 이미지가 빌드되고, MySQL 과 함께 실제로 떠서 응답하는지 확인한다.
   docker-smoke:
     runs-on: ubuntu-latest

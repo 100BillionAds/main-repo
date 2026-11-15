@@ -1,0 +1,49 @@
+# Render Blueprint: 백억광고 앱 (무료 플랜)
+# DB 는 TiDB Cloud Starter(MySQL 호환, 무료)를 쓴다. 접속 정보는 대시보드에서 입력한다.
+# 자세한 절차: docs/DEPLOYMENT.md 0장
+services:
+  - type: web
+    name: tenbadv
+    runtime: docker
+    plan: free
+    region: singapore
+    branch: main
+    rootDir: 10badv
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    # GitHub CI 가 통과한 커밋만 배포한다
+    autoDeployTrigger: checksPass
+    envVars:
+      # ---- DB (TiDB Cloud Starter) ----
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_SSL
+        value: "true"
+      # ---- 인증 ----
+      - key: NEXTAUTH_SECRET
+        generateValue: true
+      # NEXTAUTH_URL 은 비워 두면 Render 가 주는 RENDER_EXTERNAL_URL 을 쓴다 (server.js)
+      # ---- 에스크로 자동정산 ----
+      - key: CRON_SECRET
+        generateValue: true
+      - key: SETTLEMENT_INTERVAL_MINUTES
+        value: "10"
+      - key: ESCROW_AUTO_CONFIRM_DAYS
+        value: "7"
+      - key: ESCROW_AUTO_CANCEL_DAYS
+        value: "7"
+      - key: ESCROW_COMMISSION_RATE
+        value: "0.1"
+      # ---- 결제 (포트원, 선택) ----
+      - key: PORTONE_API_SECRET
+        sync: false
+      # ---- 파일 업로드 (Cloudinary, 선택) ----
+      - key: STORAGE_PROVIDER
+        value: cloudinary
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false

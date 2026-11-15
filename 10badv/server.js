@@ -6,6 +6,13 @@ const mysql = require('mysql2/promise');
 const { decode } = require('next-auth/jwt');
 require('dotenv').config({ path: '.env.local' });
 
+// Render 등 플랫폼이 주는 공개 주소를 NextAuth 기본 주소로 사용한다 (직접 설정한 값이 우선).
+if (!process.env.NEXTAUTH_URL) {
+  const platformUrl = process.env.RENDER_EXTERNAL_URL
+    || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : '');
+  if (platformUrl) process.env.NEXTAUTH_URL = platformUrl;
+}
+
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOSTNAME || '0.0.0.0';
 const port = parseInt(process.env.PORT || '3000', 10);
