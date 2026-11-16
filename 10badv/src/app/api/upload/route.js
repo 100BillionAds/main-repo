@@ -3,9 +3,11 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { v4 as uuidv4 } from 'uuid';
 import { checkRateLimit } from '@/lib/rateLimit';
-import { uploadObject } from '@/lib/storage';
+import { getMaxUploadBytes, uploadObject } from '@/lib/storage';
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+
+const megabytes = (bytes) => `${Math.round((bytes / 1024 / 1024) * 10) / 10}MB`;
 
 export async function POST(request) {
   try {
@@ -35,10 +37,11 @@ export async function POST(request) {
         return NextResponse.json({ success: false, error: '디자이너만 포트폴리오 이미지를 업로드할 수 있습니다.' }, { status: 403 });
       }
 
-      const maxSize = type === 'avatar' ? 5 * 1024 * 1024 : 10 * 1024 * 1024;
+      // 저장 방식에 따라 한도가 더 작을 수 있다 (DB 저장은 2MB)
+      const maxSize = getMaxUploadBytes(type === 'avatar' ? 5 * 1024 * 1024 : 10 * 1024 * 1024);
       if (file.size > maxSize) {
         return NextResponse.json(
-          { success: false, error: `파일 크기는 ${type === 'avatar' ? '5MB' : '10MB'}를 초과할 수 없습니다.` },
+          { success: false, error: `파일 크기는 ${megabytes(maxSize)}를 초과할 수 없습니다.` },
           { status: 400 }
         );
       }
@@ -80,9 +83,10 @@ export async function POST(request) {
       for (const f of files) {
         if (!f || typeof f === 'string') continue;
 
-        if (f.size > 10 * 1024 * 1024) {
+        const maxSize = getMaxUploadBytes(10 * 1024 * 1024);
+        if (f.size > maxSize) {
           return NextResponse.json(
-            { success: false, error: `파일 크기는 10MB를 초과할 수 없습니다: ${f.name}` },
+            { success: false, error: `파일 크기는 ${megabytes(maxSize)}를 초과할 수 없습니다: ${f.name}` },
             { status: 400 }
           );
         }
@@ -119,13 +123,20 @@ export async function POST(request) {
   } catch (error) {
     console.error('파일 업로드 실패:', error);
 
+    if (error?.code === 'FILE_TOO_LARGE') {
+      return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+    }
+    if (error?.code === 'STORAGE_FULL') {
+      return NextResponse.json({ success: false, error: error.message }, { status: 507 });
+    }
+
     if (
       error?.code === 'STORAGE_NOT_CONFIGURED'
       || error?.code === 'STORAGE_PROVIDER_MISCONFIGURED'
       || error?.code === 'STORAGE_PROVIDER_UNSUPPORTED'
     ) {
       return NextResponse.json(
-        { success: false, error: '파일 스토리지 설정이 필요합니다. 무료 모드는 CLOUDINARY_* 환경변수를 설정해주세요.' },
+        { success: false, error: '파일 저장소 설정이 필요합니다. STORAGE_PROVIDER 환경변수를 확인해주세요.' },
         { status: 503 }
       );
     }

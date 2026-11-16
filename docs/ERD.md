@@ -213,6 +213,17 @@ erDiagram
 
 `src/lib/migrations/` 에 새 마이그레이션 파일을 추가하고 `index.js` 목록 끝에 등록합니다. 이미 적용된 마이그레이션은 수정하지 않습니다. 절차와 규칙은 [MIGRATIONS.md](./MIGRATIONS.md) 에 있습니다.
 
+### stored_files
+
+업로드 파일 보관 (`STORAGE_PROVIDER=db`). [OPERATIONS.md](./OPERATIONS.md#파일-저장)
+
+| 컬럼 | 설명 |
+|---|---|
+| `id` | PK. 무작위 UUID. `/api/files/<id>` 주소가 된다 |
+| `object_key` | 올릴 때의 경로 (예: `uploads/portfolios/3-….png`) |
+| `content_type`, `size_bytes` | 형식과 크기 |
+| `data` | 파일 본문 (LONGBLOB) |
+
 ### outbox_events
 
 도메인 이벤트 아웃박스 ([EVENTS.md](./EVENTS.md)). 업무 변경과 같은 트랜잭션에서 기록됩니다.

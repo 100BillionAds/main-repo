@@ -179,7 +179,8 @@ jobs:
           # 정리 작업 API 인증
           curl -fsS -X POST -H "Authorization: Bearer ci-smoke-cron" http://localhost:3000/api/cron/maintenance | grep '"success":true'
           test "$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:3000/api/cron/maintenance)" = "401"
-          docker compose exec -T db sh -c 'mysql -u root -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE" -N -e "SELECT COUNT(*) FROM schema_migrations"' | grep -x 4
+          # 마이그레이션이 모두 적용됐는지 (개수는 /api/health/ready 가 코드의 목록과 대조한다)
+          curl -fsS http://localhost:3000/api/health/ready | grep -o '"migrations":{"status":"ok"'
 
       - name: Logs on failure
         if: failure()

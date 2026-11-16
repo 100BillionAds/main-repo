@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import pool from '@/lib/db';
 import { v4 as uuidv4 } from 'uuid';
-import { uploadObject } from '@/lib/storage';
+import { getMaxUploadBytes, uploadObject } from '@/lib/storage';
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 export async function POST(request) {
@@ -21,8 +21,13 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: '파일과 채팅방 정보가 필요합니다.' }, { status: 400 });
     }
 
-    if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json({ success: false, error: '파일 크기는 10MB를 초과할 수 없습니다.' }, { status: 400 });
+    // 저장 방식에 따라 한도가 더 작을 수 있다 (DB 저장은 2MB)
+    const maxSize = getMaxUploadBytes(MAX_FILE_SIZE);
+    if (file.size > maxSize) {
+      return NextResponse.json(
+        { success: false, error: `파일 크기는 ${Math.round(maxSize / 1024 / 1024)}MB를 초과할 수 없습니다.` },
+        { status: 400 }
+      );
     }
 
     const userId = parseInt(session.user.id);
@@ -69,13 +74,20 @@ export async function POST(request) {
   } catch (error) {
     console.error('파일 업로드 실패:', error);
 
+    if (error?.code === 'FILE_TOO_LARGE') {
+      return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+    }
+    if (error?.code === 'STORAGE_FULL') {
+      return NextResponse.json({ success: false, error: error.message }, { status: 507 });
+    }
+
     if (
       error?.code === 'STORAGE_NOT_CONFIGURED'
       || error?.code === 'STORAGE_PROVIDER_MISCONFIGURED'
       || error?.code === 'STORAGE_PROVIDER_UNSUPPORTED'
     ) {
       return NextResponse.json(
-        { success: false, error: '파일 스토리지 설정이 필요합니다. 무료 모드는 CLOUDINARY_* 환경변수를 설정해주세요.' },
+        { success: false, error: '파일 저장소 설정이 필요합니다. STORAGE_PROVIDER 환경변수를 확인해주세요.' },
         { status: 503 }
       );
     }
