@@ -272,6 +272,9 @@ DB 환경변수가 없는 상태로 배포하면 클로즈드 테스트 모드�
 
 ## 배포 후 확인
 
+`https://<주소>/api/health/ready` 가 `"status":"ok"` 를 돌려주는지 봅니다. 항목별 의미와 장애 대응은 [OPERATIONS.md](./OPERATIONS.md) 에 있습니다.
+
+
 - [ ] `https://도메인/api/health` 가 `{"status":"ok"}` 를 반환한다
 - [ ] 앱 로그(Render: Logs)에 `자동정산 스케줄러 시작` 이 보인다
 - [ ] GitHub Actions `settle` 수동 실행이 성공한다

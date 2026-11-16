@@ -26,4 +26,10 @@ export async function register() {
     const { startEventProcessing } = await import('@/lib/events/eventBus');
     startEventProcessing();
   }
+
+  // server.js 가 종료 신호를 받으면 부르는 정리 함수들: 처리 중인 이벤트를 마치고 연결을 닫는다.
+  globalThis.__tenbadvShutdownHooks = [
+    async () => (await import('@/lib/events/queue')).closeQueue(),
+    async () => (await import('@/lib/redis')).closeRedis(),
+  ];
 }

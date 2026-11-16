@@ -10,6 +10,7 @@
 | [ERD.md](./ERD.md) | 데이터베이스 ERD 및 테이블 스키마 |
 | [ESCROW.md](./ESCROW.md) | 에스크로 자동정산: 용어, 상태 전환, 동시성 규칙 |
 | [LLM.md](./LLM.md) | AI 기능: 제공자 추상화, 장애 대응, 프롬프트 관리, 비용 통제 |
+| [OPERATIONS.md](./OPERATIONS.md) | 운영 안내서: 상태 확인, 로그, 예약 작업, 백업, 실제 운영 전 점검 |
 | [EVENTS.md](./EVENTS.md) | 이벤트와 메시지 큐: 아웃박스, 릴레이, 워커, 멱등 소비자 |
 | [REDIS.md](./REDIS.md) | Redis: 캐시, 요청 제한, 장애 시 동작 |
 | [MIGRATIONS.md](./MIGRATIONS.md) | 스키마 마이그레이션: 추가 방법, 규칙, 실패 시 동작 |

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 운영 정비: 구성 요소별 상태 점검 `GET /api/health/ready` (DB·마이그레이션·Redis·이벤트 처리), 정리 작업 `POST /api/cron/maintenance` 와 하루 1회 스케줄, 종료 신호 시 처리 중인 요청·이벤트를 마치고 내려가는 절차. 문서 `docs/OPERATIONS.md`
 - 이벤트 기반 후속 처리: 거래 도메인 이벤트, 트랜잭션 아웃박스(`outbox_events`), BullMQ 큐와 워커(Redis 가 없으면 즉시 처리), 멱등한 알림 소비자. 문서 `docs/EVENTS.md`
 - 알림: 거래 진행 상황을 당사자에게 알림 (`/notifications`, `GET·PATCH /api/notifications`)
 - Redis 도입: AI 응답 캐시(같은 입력은 LLM 을 다시 부르지 않음), Lua 스크립트로 원자적인 요청 제한. Redis 가 없거나 장애면 메모리로 동작. Render Key Value(무료) 정의 추가. 문서 `docs/REDIS.md`

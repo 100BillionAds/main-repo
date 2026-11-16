@@ -172,7 +172,6 @@ UPDATE outbox_events SET attempts = 0, enqueued_at = NULL WHERE id = ?;
 
 ## 아직 없는 것
 
-- `outbox_events` 의 오래된 완료 행 정리 (계속 쌓인다)
 - 알림의 실시간 전달 (지금은 알림 화면을 열 때 조회)
 - 결제 충전·출금 이벤트
 - 워커를 별도 프로세스로 분리
