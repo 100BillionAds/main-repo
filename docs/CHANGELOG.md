@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- 파일 DB 저장: 업로드 파일을 `stored_files` 테이블에 보관하고 `/api/files/<id>` 로 제공 (`STORAGE_PROVIDER=db`). 외부 저장소 없이 이미지 업로드 가능. 파일당 2MB, 전체 용량 한도, 이미지가 아닌 파일은 내려받기로만 제공
 - 운영 정비: 구성 요소별 상태 점검 `GET /api/health/ready` (DB·마이그레이션·Redis·이벤트 처리), 정리 작업 `POST /api/cron/maintenance` 와 하루 1회 스케줄, 종료 신호 시 처리 중인 요청·이벤트를 마치고 내려가는 절차. 문서 `docs/OPERATIONS.md`
 - 이벤트 기반 후속 처리: 거래 도메인 이벤트, 트랜잭션 아웃박스(`outbox_events`), BullMQ 큐와 워커(Redis 가 없으면 즉시 처리), 멱등한 알림 소비자. 문서 `docs/EVENTS.md`
 - 알림: 거래 진행 상황을 당사자에게 알림 (`/notifications`, `GET·PATCH /api/notifications`)

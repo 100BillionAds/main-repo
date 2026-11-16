@@ -7,7 +7,7 @@
 | 부품 | 서비스 | 무료 플랜의 제약 |
 |---|---|---|
 | 웹 서버 + 워커 | Render Web Service (`tenbadv`) | 15분간 요청이 없으면 잠듦 (다음 첫 요청 50초~1분). 메모리 512MB. 월 750시간 |
-| DB | TiDB Cloud Starter | 저장 5GiB, 자동 백업은 하루 1회·보관 1일, 특정 시점 복구 없음 |
+| DB (+ 업로드 파일) | TiDB Cloud Starter | 저장 5GiB, 자동 백업은 하루 1회·보관 1일, 특정 시점 복구 없음 |
 | Redis | Render Key Value (`tenbadv-cache`) | 재시작하면 데이터가 사라짐 |
 | 예약 작업 | 서버 내장 스케줄러 + GitHub Actions | 서버가 잠들면 내장 스케줄러도 멈춤 |
 
@@ -114,6 +114,27 @@ Render → tenbadv → Logs 에서 검색합니다.
 - 내보낸 파일에는 회원 정보가 들어 있습니다. 공개 저장소나 공유 드라이브에 올리지 마세요.
 
 Redis 는 백업하지 않습니다. 사라져도 되는 데이터만 둡니다 ([REDIS.md](./REDIS.md)).
+
+## 파일 저장
+
+업로드한 이미지와 채팅 첨부 파일은 **DB 의 `stored_files` 테이블**에 보관하고 `/api/files/<id>` 로 내보냅니다 (`STORAGE_PROVIDER=db`). Render 무료 서버의 디스크는 재시작 때 지워지기 때문에 서버에 직접 저장할 수 없습니다.
+
+| 항목 | 값 |
+|---|---|
+| 파일 하나의 크기 | 최대 2MB (DB 는 행 하나의 크기에 제한이 있음) |
+| 전체 용량 | 최대 2GB (`STORAGE_DB_MAX_TOTAL_MB`). 넘으면 업로드가 거부됨 |
+| 주소 | 무작위 UUID. 추측할 수 없음 |
+| 캐시 | 브라우저가 1년간 보관 (같은 주소의 내용은 바뀌지 않음) |
+| 이미지가 아닌 파일 | 화면에 열리지 않고 내려받기로만 나감 (올라온 HTML·SVG 가 우리 도메인에서 실행되는 것을 막음) |
+
+```sql
+-- 사용 중인 용량
+SELECT COUNT(*) AS files, ROUND(SUM(size_bytes) / 1024 / 1024, 1) AS mb FROM stored_files;
+```
+
+**한계**: 이미지를 볼 때마다 DB 에서 읽어 서버를 거쳐 나갑니다. 사용자가 늘면 느려지고 DB 용량과 백업 크기가 커집니다. 포트폴리오를 지워도 파일은 남습니다 (정리 기능 없음).
+
+**외부 저장소로 바꾸기**: Render 의 `STORAGE_PROVIDER` 를 `cloudinary` 로 바꾸고 `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` 을 넣습니다. 그 뒤 올리는 파일부터 바깥에 저장되고, 이미 DB 에 있는 파일은 기존 주소로 계속 보입니다.
 
 ## 배포와 되돌리기
 
