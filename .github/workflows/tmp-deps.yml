@@ -1,0 +1,29 @@
+# 임시: eslint 10 호환 확인 및 잠금 파일 갱신. PR 전에 삭제한다.
+name: tmp-deps
+on:
+  push:
+    branches: [chore/eslint-10]
+    paths: ['.github/workflows/tmp-deps.yml']
+permissions:
+  contents: write
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+      - working-directory: 10badv
+        run: npm install -D eslint@^10 @eslint/js@^10 --package-lock-only --ignore-scripts 2>&1 | tee /tmp/npm.log
+      - working-directory: 10badv
+        run: |
+          npm ci --ignore-scripts
+          npx eslint --version
+          npm run lint
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add 10badv/package.json 10badv/package-lock.json
+          git commit -m "chore(deps-dev): eslint 10"
+          git push
