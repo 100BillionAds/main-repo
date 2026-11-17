@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import pool from '@/lib/db';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 import { getMaxUploadBytes, uploadObject } from '@/lib/storage';
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -46,7 +46,7 @@ export async function POST(request) {
     const buffer = Buffer.from(bytes);
 
     const ext = file.name.split('.').pop();
-    const fileName = `chat/${roomId}/${uuidv4()}.${ext}`;
+    const fileName = `chat/${roomId}/${randomUUID()}.${ext}`;
     const fileUrl = await uploadObject({
       buffer,
       objectKey: fileName,
