@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'node:crypto';
 import { checkRateLimit } from '@/lib/rateLimit';
 import { getMaxUploadBytes, uploadObject } from '@/lib/storage';
 
@@ -55,7 +55,7 @@ export async function POST(request) {
 
       const ext = file.name.split('.').pop();
       const folder = type === 'avatar' ? 'avatars' : 'portfolios';
-      const key = `uploads/${folder}/${session.user.id}-${uuidv4()}.${ext}`;
+      const key = `uploads/${folder}/${session.user.id}-${randomUUID()}.${ext}`;
 
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
@@ -99,7 +99,7 @@ export async function POST(request) {
         }
 
         const ext = f.name.split('.').pop();
-        const key = `uploads/portfolios/${session.user.id}-${uuidv4()}.${ext}`;
+        const key = `uploads/portfolios/${session.user.id}-${randomUUID()}.${ext}`;
 
         const bytes = await f.arrayBuffer();
         const buffer = Buffer.from(bytes);
