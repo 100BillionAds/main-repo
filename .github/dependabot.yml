@@ -14,3 +14,8 @@ updates:
         patterns:
           - 'react'
           - 'react-dom'
+      # next 와 eslint-config-next 는 같은 버전으로 맞춘다.
+      next:
+        patterns:
+          - 'next'
+          - 'eslint-config-next'
