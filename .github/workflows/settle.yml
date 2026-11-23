@@ -23,13 +23,19 @@ jobs:
   settle:
     if: ${{ vars.APP_URL != '' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    # 90초 × 4회 + 대기 20초 × 3회 = 7분. 이보다 짧으면 잠든 서버를 기다리다 작업이 취소된다.
+    timeout-minutes: 9
     steps:
       - name: Call settlement API
         env:
           APP_URL: ${{ vars.APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
+          # 비밀값이 없으면 서버가 401 로 거절하므로 재시도하지 않고 원인을 바로 알린다
+          if [ -z "${CRON_SECRET}" ]; then
+            echo "::error::저장소 Secret CRON_SECRET 이 없습니다. Render 의 CRON_SECRET 과 같은 값을 등록하세요 (docs/DEPLOYMENT.md 0-3)"
+            exit 1
+          fi
           # 잠든 서버가 깨어나는 데 1분 가까이 걸리므로 넉넉히 기다리며 재시도한다
           for i in 1 2 3 4; do
             body=$(curl -sS --max-time 90 -X POST \
@@ -42,7 +48,11 @@ jobs:
               echo "$body" | head -n -1 | grep -q '"failed":0' || { echo "::warning::정산 실패 건이 있습니다"; }
               exit 0
             fi
-            sleep 20
+            if [ "$code" = "401" ] || [ "$code" = "403" ]; then
+              echo "::error::인증 실패. GitHub Secret CRON_SECRET 과 Render 의 CRON_SECRET 값이 같은지 확인하세요"
+              exit 1
+            fi
+            [ "$i" = 4 ] || sleep 20
           done
           echo "::error::자동정산 호출 실패"
           exit 1

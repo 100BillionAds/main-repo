@@ -28,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 문서: `docs/ESCROW.md`
 
 ### Changed
+- 의존성 업데이트: react·react-dom 19.3.1(함께), next·eslint-config-next 16.4.6, bullmq 6, dotenv 18, @testing-library/jest-dom 8, jest 30.5, @portone/browser-sdk 0.1.14 외. Dependabot 이 함께 맞춰야 하는 패키지(react, next)를 한 PR 로 올리도록 그룹 설정
+- `settle` 워크플로: `CRON_SECRET` 이 없거나 인증이 실패하면 재시도 없이 원인을 알리고, 잠든 서버를 기다리다 작업 시간이 끝나 취소되지 않도록 제한 시간을 늘림
 - 회원가입과 파일 업로드의 요청 제한이 같은 IP 횟수를 공유하던 것을 용도별로 따로 세도록 변경
 - 포트원 결제 조회 코드를 `src/lib/payment/portoneGateway.js` 로 분리 (동작 동일)
 
