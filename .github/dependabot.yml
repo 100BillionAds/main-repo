@@ -8,4 +8,9 @@ updates:
     labels:
       - 'dependencies'
       - 'automated'
-
+    groups:
+      # react 와 react-dom 은 버전이 정확히 같아야 한다. 따로 올리면 테스트가 깨진다(#76).
+      react:
+        patterns:
+          - 'react'
+          - 'react-dom'
