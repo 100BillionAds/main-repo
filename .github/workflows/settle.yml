@@ -27,14 +27,18 @@ jobs:
     timeout-minutes: 9
     steps:
       - name: Call settlement API
+        id: settle
         env:
           APP_URL: ${{ vars.APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          # 비밀값이 없으면 서버가 401 로 거절하므로 재시도하지 않고 원인을 바로 알린다
+          # 비밀값이 아직 등록되지 않았으면 호출하지 않고 경고만 남긴다.
+          # 실패로 끝내면 매시간 실패 메일이 가므로 성공으로 끝낸다.
+          # 이때 정산은 서버가 깨어 있는 동안 내장 스케줄러(server.js)가 처리한다.
           if [ -z "${CRON_SECRET}" ]; then
-            echo "::error::저장소 Secret CRON_SECRET 이 없습니다. Render 의 CRON_SECRET 과 같은 값을 등록하세요 (docs/DEPLOYMENT.md 0-3)"
-            exit 1
+            echo "::warning::저장소 Secret CRON_SECRET 이 없어 호출을 건너뜁니다. 등록 방법: docs/DEPLOYMENT.md 0-3"
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
           # 잠든 서버가 깨어나는 데 1분 가까이 걸리므로 넉넉히 기다리며 재시도한다
           for i in 1 2 3 4; do
@@ -59,6 +63,7 @@ jobs:
 
       # 오래된 처리 완료 이벤트·읽은 알림을 지운다. 실패해도 정산 결과에는 영향을 주지 않는다.
       - name: Call maintenance API
+        if: ${{ steps.settle.outputs.skipped != 'true' }}
         continue-on-error: true
         env:
           APP_URL: ${{ vars.APP_URL }}

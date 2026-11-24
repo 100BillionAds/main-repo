@@ -312,7 +312,8 @@ DB 환경변수가 없는 상태로 배포하면 클로즈드 테스트 모드�
 | 쓰기 요청이 503 | DB 환경변수가 비어 있어 클로즈드 테스트 모드. `.env` 확인 |
 | 채팅 연결이 바로 끊김 | 로그인 상태인지, `NEXTAUTH_SECRET` 이 설정됐는지, `NEXT_PUBLIC_SOCKET_URL` 이 접속 주소와 같은지 |
 | 자동정산이 안 돎 | `CRON_SECRET` 설정 여부, 앱 로그의 `자동정산` 줄 |
-| `settle` 워크플로가 401 로 실패 | GitHub Secret `CRON_SECRET` 이 없거나 Render 값과 다름 (0-3) |
+| `settle` 워크플로에 "호출을 건너뜁니다" 경고 | GitHub Secret `CRON_SECRET` 이 없음. 실패로 처리하지 않으므로 메일은 오지 않음. 등록하면 호출 시작 (0-3) |
+| `settle` 워크플로가 401 로 실패 | GitHub Secret `CRON_SECRET` 값이 Render 값과 다름 |
 | `settle` 워크플로가 HTTP 000 | 서버가 잠들어 있거나 재배포 중. 다음 실행에서 대개 회복. 계속되면 Render Logs 확인 |
 | 결제창이 안 뜸 | `NEXT_PUBLIC_PORTONE_*` 를 저장소 Variables 에 넣고 이미지를 다시 빌드했는지 |
 | HTTPS 인증서 발급 실패 | 도메인 A 레코드, 80/443 포트 개방, `docker compose logs caddy` |
